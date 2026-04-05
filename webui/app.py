@@ -739,14 +739,12 @@ def get_all_mtproto():
             port = p.get('port', 0)
             label = p.get('label', '')
             unique_ips = 0
-            # Get container PID via Docker API
             container_name = f'mtproto-proxy-{label}'
             try:
                 r = subprocess.run(['docker', 'inspect', '-f', '{{.State.Pid}}', container_name],
                                   capture_output=True, text=True, timeout=5)
                 if r.returncode == 0 and r.stdout.strip():
                     pid = r.stdout.strip()
-                    # Read /proc/<PID>/net/tcp from mounted host /proc
                     tcp_file = f'/host_proc/{pid}/net/tcp'
                     if os.path.exists(tcp_file):
                         with open(tcp_file, 'r') as f:
@@ -754,7 +752,7 @@ def get_all_mtproto():
                             ips = set()
                             for line in f:
                                 parts = line.strip().split()
-                                if len(parts) >= 4 and parts[3] == '01':  # ESTABLISHED
+                                if len(parts) >= 4 and parts[3] == '01':
                                     local = parts[1].split(':')
                                     if len(local) >= 2 and local[1].upper() == hex_port:
                                         rip_hex = parts[2].split(':')[0]
