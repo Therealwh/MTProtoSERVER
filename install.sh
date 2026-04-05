@@ -318,6 +318,7 @@ step_bot_config() {
     echo -e "${CYAN}${E_BOT}  Telegram бот для управления прокси${NC}"
     echo -e "   Бот позволяет управлять прокси прямо из Telegram"
     echo -e "   Команды: /start, /adduser, /stats, /listusers и др."
+    echo -e "   Только админ сможет использовать бота"
     echo ""
 
     read -p "Установить Telegram бот? [y/n] (по умолчанию y): " bot_choice
@@ -340,10 +341,75 @@ step_bot_config() {
         else
             log_ok "Токен бота сохранён"
             echo ""
-            read -p "Введите ваш Chat ID для уведомлений (необязательно, нажмите Enter для пропуска): " ADMIN_CHAT_ID
+
+            # Автоматическое получение Chat ID
+            echo -e "${WHITE}${E_PHONE}  Получение Chat ID админа...${NC}"
+            echo -e "   ${E_ARROW} Откройте вашего бота в Telegram"
+            echo -e "   ${E_ARROW} Напишите команду /start"
+            echo -e "   ${E_ARROW} Затем нажмите Enter здесь"
+            echo ""
+            read -p "Вы написали /start в бота? [y/n]: " wrote_start
+            wrote_start=${wrote_start:-n}
+
+            if [[ "$wrote_start" =~ ^[Yy]$ ]]; then
+                log_info "Получение Chat ID через Telegram API..."
+                # Получаем последние обновления от бота
+                local updates
+                updates=$(curl -s "https://api.telegram.org/bot${BOT_TOKEN}/getUpdates" 2>/dev/null || echo "")
+
+                if [ -n "$updates" ] && echo "$updates" | grep -q '"chat"'; then
+                    # Извлекаем Chat ID из последнего сообщения
+                    ADMIN_CHAT_ID=$(echo "$updates" | grep -o '"chat":{"id":[0-9-]*' | tail -1 | grep -o '[0-9-]*$')
+
+                    if [ -n "$ADMIN_CHAT_ID" ]; then
+                        log_ok "Chat ID получен автоматически: ${ADMIN_CHAT_ID}"
+                        echo -e "   ${E_LOCK} Только этот пользователь сможет использовать бота"
+                    else
+                        log_warn "Не удалось получить Chat ID автоматически"
+                        read -p "Введите Chat ID вручную: " ADMIN_CHAT_ID
+                    fi
+                else
+                    log_warn "Бот не получил сообщений. Возможно, вы ещё не написали /start"
+                    echo ""
+                    echo -e "${YELLOW}Повторите:${NC}"
+                    echo -e "  1. Найдите бота в Telegram"
+                    echo -e "  2. Напишите /start"
+                    echo -e "  3. Затем нажмите Enter"
+                    echo ""
+                    read -p "Готово? [y/n]: " retry_start
+                    retry_start=${retry_start:-n}
+
+                    if [[ "$retry_start" =~ ^[Yy]$ ]]; then
+                        updates=$(curl -s "https://api.telegram.org/bot${BOT_TOKEN}/getUpdates" 2>/dev/null || echo "")
+                        if [ -n "$updates" ] && echo "$updates" | grep -q '"chat"'; then
+                            ADMIN_CHAT_ID=$(echo "$updates" | grep -o '"chat":{"id":[0-9-]*' | tail -1 | grep -o '[0-9-]*$')
+                            if [ -n "$ADMIN_CHAT_ID" ]; then
+                                log_ok "Chat ID получен автоматически: ${ADMIN_CHAT_ID}"
+                            else
+                                log_warn "Не удалось получить Chat ID"
+                                read -p "Введите Chat ID вручную: " ADMIN_CHAT_ID
+                            fi
+                        else
+                            log_warn "Всё ещё нет сообщений. Введите Chat ID вручную."
+                            echo -e "   ${E_INFO} Как узнать: напишите @userinfobot в Telegram"
+                            read -p "Chat ID: " ADMIN_CHAT_ID
+                        fi
+                    else
+                        log_warn "Введите Chat ID вручную"
+                        echo -e "   ${E_INFO} Как узнать: напишите @userinfobot в Telegram"
+                        read -p "Chat ID: " ADMIN_CHAT_ID
+                    fi
+                fi
+            else
+                log_info "Введите Chat ID вручную"
+                echo -e "   ${E_INFO} Как узнать: напишите @userinfobot в Telegram"
+                read -p "Chat ID: " ADMIN_CHAT_ID
+            fi
+
             ADMIN_CHAT_ID=${ADMIN_CHAT_ID:-""}
             if [ -n "$ADMIN_CHAT_ID" ]; then
-                log_ok "Chat ID для уведомлений: $ADMIN_CHAT_ID"
+                log_ok "Admin Chat ID: $ADMIN_CHAT_ID"
+                log_ok "Только этот пользователь сможет управлять ботом"
             fi
         fi
     else

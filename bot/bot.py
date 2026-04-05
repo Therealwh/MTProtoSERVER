@@ -23,6 +23,29 @@ DATA_DIR = '/app/data'
 USERS_FILE = os.path.join(DATA_DIR, 'users.json')
 PROXIES_FILE = os.path.join(DATA_DIR, 'proxies.json')
 
+def is_admin(update: Update):
+    if not ADMIN_CHAT_ID:
+        return True
+    user_id = str(update.effective_user.id)
+    return user_id == ADMIN_CHAT_ID
+
+def admin_only(func):
+    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not is_admin(update):
+            await update.message.reply_text("🚫 У вас нет доступа к этому боту.")
+            logger.warning(f"Unauthorized access attempt from user {update.effective_user.id}")
+            return
+        return await func(update, context)
+    return wrapper
+
+def admin_callback_only(func):
+    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not is_admin(update):
+            await update.callback_query.answer("🚫 У вас нет доступа!")
+            return
+        return await func(update, context)
+    return wrapper
+
 def load_json(filepath):
     try:
         with open(filepath, 'r') as f:
@@ -61,6 +84,7 @@ def main_menu_keyboard():
     ]
     return InlineKeyboardMarkup(keyboard)
 
+@admin_only
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     proxies_data = get_proxies()
     proxies = proxies_data.get('proxies', [])
@@ -86,6 +110,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=main_menu_keyboard()
     )
 
+@admin_callback_only
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -274,6 +299,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         status = "включён" if action == 'enable' else "отключён"
         await query.edit_message_text(f"✅ Пользователь `{user_id}` {status}.", parse_mode='Markdown')
 
+@admin_only
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if context.user_data.get('waiting_for_name'):
         name = update.message.text
