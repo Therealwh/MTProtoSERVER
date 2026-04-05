@@ -8,10 +8,47 @@
 
 <div class="stats-grid">
     <div class="stat-card">
+        <div class="stat-icon">🔐</div>
+        <div class="stat-info">
+            <h3>{{ active_proxies }}/{{ proxy_count }}</h3>
+            <p>MTProto прокси</p>
+        </div>
+    </div>
+    <div class="stat-card">
         <div class="stat-icon">👥</div>
         <div class="stat-info">
-            <h3>{{ active_clients }}/{{ clients_count }}</h3>
-            <p>Активных клиентов</p>
+            <h3>{{ clients_count }}</h3>
+            <p>Клиентов</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">🖥️</div>
+        <div class="stat-info">
+            <h3>{{ nodes_count }}</h3>
+            <p>Нод</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">⬇️</div>
+        <div class="stat-info">
+            <h3>{{ total_rx }}</h3>
+            <p>Всего получено (RX)</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">⬆️</div>
+        <div class="stat-info">
+            <h3>{{ total_tx }}</h3>
+            <p>Всего отправлено (TX)</p>
+        </div>
+    </div>
+</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">👥</div>
+        <div class="stat-info">
+            <h3>{{ clients_count }}</h3>
+            <p>Клиентов</p>
         </div>
     </div>
     <div class="stat-card">

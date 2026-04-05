@@ -145,11 +145,28 @@ async def api_logout():
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
     c = ctx(request)
-    cd = get_clients(); nd = get_nodes()
-    cl = cd.get('clients',[]); ns = nd.get('nodes',[])
-    act = len([x for x in cl if x.get('enabled',True)])
-    rx = sum(x.get('rx_bytes',0) for x in cl); tx = sum(x.get('tx_bytes',0) for x in cl)
-    c.update({'clients':cl,'nodes':ns,'clients_count':len(cl),'active_clients':act,'nodes_count':len(ns),'total_rx':fmt(rx),'total_tx':fmt(tx),'system':sys_info(),'containers':docker_ps()})
+    nd = get_nodes()
+    ns = nd.get('nodes',[])
+    # Use proxies.json for MTProto proxy count
+    pd = load_json(os.path.join(DATA_DIR, 'proxies.json'))
+    proxies = pd.get('proxies', [])
+    proxy_count = len(proxies)
+    active_proxies = len([p for p in proxies if p.get('enabled', True)])
+    # Also count clients
+    cd = get_clients()
+    cl = cd.get('clients',[])
+    c.update({
+        'clients':cl, 'nodes':ns,
+        'clients_count': len(cl),
+        'active_clients': len([x for x in cl if x.get('enabled',True)]),
+        'proxy_count': proxy_count,
+        'active_proxies': active_proxies,
+        'nodes_count':len(ns),
+        'total_rx': fmt(sum(x.get('rx_bytes',0) for x in cl)),
+        'total_tx': fmt(sum(x.get('tx_bytes',0) for x in cl)),
+        'system':sys_info(),
+        'containers':docker_ps()
+    })
     return templates.TemplateResponse("dashboard.html", c)
 
 @app.get("/clients", response_class=HTMLResponse)
