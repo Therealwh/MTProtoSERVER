@@ -548,6 +548,31 @@ async def create_mtproto(request: Request):
                        f'0.0.0.0:{port}', secret], capture_output=True, timeout=30)
     except Exception as e:
         return JSONResponse({'status': 'error', 'message': str(e)}, status_code=500)
+    # Save to clients.json
+    cd = get_clients()
+    cl = cd.get('clients', [])
+    next_id = cd.get('next_id', 1)
+    cl.append({
+        'id': next_id, 'label': label, 'node_id': 0, 'port': port, 'domain': domain,
+        'secret': secret, 'enabled': True, 'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'traffic_limit_gb': 0, 'device_limit': 0, 'expiry_date': '', 'auto_reset': 'never',
+        'rx_bytes': 0, 'tx_bytes': 0, 'unique_ips': 0, 'connections': 0, 'history': []
+    })
+    cd['clients'] = cl
+    cd['next_id'] = next_id + 1
+    save_clients(cd)
+    # Save to proxies.json
+    pd = load_json(os.path.join(DATA_DIR, 'proxies.json'))
+    pl = pd.get('proxies', [])
+    p_next_id = pd.get('next_id', 1)
+    pl.append({
+        'id': p_next_id, 'label': label, 'port': port, 'domain': domain,
+        'secret': secret, 'enabled': True, 'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'connections': 0, 'traffic_in': 0, 'traffic_out': 0
+    })
+    pd['proxies'] = pl
+    pd['next_id'] = p_next_id + 1
+    save_json(os.path.join(DATA_DIR, 'proxies.json'), pd)
     # Update proxy count
     s['proxy_count'] = s.get('proxy_count', 1) + 1
     save_settings(s)
