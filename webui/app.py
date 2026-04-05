@@ -179,7 +179,43 @@ async def nodes_page(request: Request):
 
 @app.get("/stats", response_class=HTMLResponse)
 async def stats_page(request: Request):
-    c = ctx(request); c.update({'clients':get_clients().get('clients',[]),'system':sys_info()}); return templates.TemplateResponse("stats.html", c)
+    c = ctx(request)
+    # Get proxies from proxies.json
+    pd = load_json(os.path.join(DATA_DIR, 'proxies.json'))
+    proxies = pd.get('proxies', [])
+    # Also get clients
+    cd = get_clients()
+    clients = cd.get('clients', [])
+    # Merge both
+    all_items = []
+    for p in proxies:
+        all_items.append({
+            'label': p.get('label', ''),
+            'port': p.get('port', 0),
+            'domain': p.get('domain', ''),
+            'enabled': p.get('enabled', True),
+            'type': 'MTProto',
+            'rx_bytes': p.get('traffic_in', 0),
+            'tx_bytes': p.get('traffic_out', 0),
+            'unique_ips': p.get('connections', 0),
+            'created_at': p.get('created_at', '')
+        })
+    for cl in clients:
+        exists = any(x['label'] == cl.get('label') for x in all_items)
+        if not exists:
+            all_items.append({
+                'label': cl.get('label', ''),
+                'port': cl.get('port', 0),
+                'domain': cl.get('domain', ''),
+                'enabled': cl.get('enabled', True),
+                'type': 'Клиент',
+                'rx_bytes': cl.get('rx_bytes', 0),
+                'tx_bytes': cl.get('tx_bytes', 0),
+                'unique_ips': cl.get('unique_ips', 0),
+                'created_at': cl.get('created_at', '')
+            })
+    c.update({'clients': all_items, 'system': sys_info()})
+    return templates.TemplateResponse("stats.html", c)
 
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
@@ -364,7 +400,23 @@ async def restart_container(request: Request):
     return JSONResponse({'status':'error'}, status_code=400)
 
 @app.get("/api/system/logs")
-async def get_logs(lines:int=100): return JSONResponse({'status':'ok','logs':compose(['logs','--tail',str(lines)])})
+async def get_logs(lines:int=100):
+    # Try docker compose first, fallback to docker logs
+    try:
+        r = subprocess.run(['docker','compose','logs','--tail',str(lines)], capture_output=True, text=True, cwd=HOST_DIR, timeout=30)
+        if r.returncode == 0: return JSONResponse({'status':'ok','logs':r.stdout})
+    except: pass
+    # Fallback: get logs from all containers
+    try:
+        r = subprocess.run(['docker','ps','--format','{{.Names}}'], capture_output=True, text=True, timeout=10)
+        logs = ''
+        for name in r.stdout.strip().split('\n'):
+            if name:
+                r2 = subprocess.run(['docker','logs','--tail',str(lines),name], capture_output=True, text=True, timeout=10)
+                logs += f"\n=== {name} ===\n{r2.stdout}\n{r2.stderr}\n"
+        return JSONResponse({'status':'ok','logs':logs})
+    except Exception as e:
+        return JSONResponse({'status':'error','message':str(e)}, status_code=500)
 
 @app.post("/api/system/backup")
 async def create_backup():

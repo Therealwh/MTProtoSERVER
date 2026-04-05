@@ -36,11 +36,14 @@
     <p style="color:var(--text-secondary);margin-bottom:12px;">Таблица с подробной информацией: статус, объём трафика, количество уникальных IP и дата создания.</p>
     <div class="table-container">
         <table class="table">
-            <thead><tr><th>Клиент</th><th>Статус</th><th>RX</th><th>TX</th><th>Всего</th><th>IP</th><th>Создан</th></tr></thead>
+            <thead><tr><th>Тип</th><th>Имя</th><th>Порт</th><th>Домен</th><th>Статус</th><th>RX</th><th>TX</th><th>Всего</th><th>IP</th><th>Создан</th></tr></thead>
             <tbody>
                 {% for c in clients %}
                 <tr>
+                    <td><span class="badge badge-warning">{{ c.type }}</span></td>
                     <td><strong>{{ c.label }}</strong></td>
+                    <td>{{ c.port }}</td>
+                    <td>{{ c.domain }}</td>
                     <td>{% if c.enabled %}<span class="badge badge-success">Активен</span>{% else %}<span class="badge badge-danger">Отключён</span>{% endif %}</td>
                     <td>{{ c.rx_bytes | default(0) | filesizeformat }}</td>
                     <td>{{ c.tx_bytes | default(0) | filesizeformat }}</td>
