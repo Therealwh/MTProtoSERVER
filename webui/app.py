@@ -171,7 +171,40 @@ async def dashboard(request: Request):
 
 @app.get("/clients", response_class=HTMLResponse)
 async def clients_page(request: Request):
-    c = ctx(request); c.update({'clients':get_clients().get('clients',[]),'nodes':get_nodes().get('nodes',[])}); return templates.TemplateResponse("clients.html", c)
+    c = ctx(request)
+    # Merge clients.json and proxies.json
+    pd = load_json(os.path.join(DATA_DIR, 'proxies.json'))
+    proxies = pd.get('proxies', [])
+    cd = get_clients()
+    clients = cd.get('clients', [])
+    # Use proxies as the main source
+    all_clients = []
+    for p in proxies:
+        all_clients.append({
+            'id': p.get('id', 0),
+            'label': p.get('label', ''),
+            'port': p.get('port', 0),
+            'domain': p.get('domain', ''),
+            'secret': p.get('secret', ''),
+            'enabled': p.get('enabled', True),
+            'created_at': p.get('created_at', ''),
+            'rx_bytes': p.get('traffic_in', 0),
+            'tx_bytes': p.get('traffic_out', 0),
+            'unique_ips': 0,
+            'connections': p.get('connections', 0),
+            'traffic_limit_gb': 0,
+            'device_limit': 0,
+            'expiry_date': '',
+            'auto_reset': 'never',
+            'history': []
+        })
+    # Also add clients from clients.json that aren't in proxies.json
+    for cl in clients:
+        exists = any(x['label'] == cl.get('label') for x in all_clients)
+        if not exists:
+            all_clients.append(cl)
+    c.update({'clients': all_clients, 'nodes': get_nodes().get('nodes', [])})
+    return templates.TemplateResponse("clients.html", c)
 
 @app.get("/nodes", response_class=HTMLResponse)
 async def nodes_page(request: Request):
@@ -729,7 +762,7 @@ async def update_mtproto(label: str, request: Request):
 # =================== PUBLIC API (no auth required) ===================
 
 def get_all_mtproto():
-    """Get MTProto proxies from proxies.json with live connection counts via Docker API"""
+    """Get MTProto proxies with live connection counts and traffic stats"""
     s = get_settings()
     ip = s.get('proxy_ip', '0.0.0.0')
     proxies = []
@@ -739,6 +772,8 @@ def get_all_mtproto():
             port = p.get('port', 0)
             label = p.get('label', '')
             unique_ips = 0
+            rx_bytes = 0
+            tx_bytes = 0
             container_name = f'mtproto-proxy-{label}'
             try:
                 r = subprocess.run(['docker', 'inspect', '-f', '{{.State.Pid}}', container_name],
@@ -748,19 +783,20 @@ def get_all_mtproto():
                     tcp_file = f'/host_proc/{pid}/net/tcp'
                     if os.path.exists(tcp_file):
                         with open(tcp_file, 'r') as f:
-                            hex_port = format(port, 'X').upper().zfill(4)
-                            ips = set()
                             for line in f:
                                 parts = line.strip().split()
                                 if len(parts) >= 4 and parts[3] == '01':
-                                    local = parts[1].split(':')
-                                    if len(local) >= 2 and local[1].upper() == hex_port:
-                                        rip_hex = parts[2].split(':')[0]
-                                        if len(rip_hex) == 8:
-                                            rip = '.'.join([str(int(rip_hex[i:i+2], 16)) for i in (6,4,2,0)])
-                                            if rip != '127.0.0.1' and rip != '0.0.0.0':
-                                                ips.add(rip)
-                        unique_ips = len(ips)
+                                    unique_ips += 1
+                    # Get traffic stats from /proc/<pid>/net/dev
+                    dev_file = f'/host_proc/{pid}/net/dev'
+                    if os.path.exists(dev_file):
+                        with open(dev_file, 'r') as f:
+                            for line in f:
+                                if 'eth0' in line or 'veth' in line:
+                                    parts = line.strip().split()
+                                    if len(parts) >= 10:
+                                        rx_bytes += int(parts[1])
+                                        tx_bytes += int(parts[9])
             except: pass
             proxies.append({
                 'label': label,
@@ -768,6 +804,8 @@ def get_all_mtproto():
                 'domain': p.get('domain', ''),
                 'secret': p.get('secret', ''),
                 'unique_ips': unique_ips,
+                'rx_bytes': rx_bytes,
+                'tx_bytes': tx_bytes,
                 'link': proxy_link(ip, port, p.get('secret', ''))
             })
     return proxies
