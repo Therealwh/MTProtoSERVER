@@ -55,6 +55,7 @@ PROXY_SECRET=""
 SERVER_IP=""
 WEBUI_PORT=8080
 PROXY_COUNT=1
+DASHBOARD_PASSWORD=""
 declare -a PROXY_PORTS=()
 declare -a PROXY_DOMAINS=()
 declare -a PROXY_SECRETS=()
@@ -438,6 +439,34 @@ step_bot_config() {
 }
 
 # ============================================================
+# ШАГ 4.5: Пароль для Web UI
+# ============================================================
+
+step_dashboard_password() {
+    print_step "4.5" "Пароль для панели управления"
+
+    echo -e "${CYAN}${E_LOCK}  Защита панели управления паролем${NC}"
+    echo -e "   Установите пароль для доступа к Web UI"
+    echo -e "   Без пароля никто не сможет открыть панель"
+    echo ""
+
+    while true; do
+        read -s -p "Введите пароль для Web UI: " DASHBOARD_PASSWORD
+        echo ""
+        read -s -p "Повторите пароль: " DASHBOARD_PASSWORD2
+        echo ""
+        if [ "$DASHBOARD_PASSWORD" = "$DASHBOARD_PASSWORD2" ] && [ -n "$DASHBOARD_PASSWORD" ]; then
+            log_ok "Пароль установлен"
+            break
+        else
+            log_err "Пароли не совпадают или пустые. Попробуйте снова."
+        fi
+    done
+
+    read -p "Нажмите Enter для продолжения..."
+}
+
+# ============================================================
 # ШАГ 5: SOCKS5 прокси
 # ============================================================
 
@@ -750,9 +779,15 @@ PROXY_EOF
       - ./data:/app/data
       - ./config:/app/config
       - ./mtproxy:/app/mtproxy
+      - ./backups:/app/backups
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/mtprotoserver:/opt/mtprotoserver
     environment:
       - PROXY_IP=${SERVER_IP}
       - PROXY_COUNT=${PROXY_COUNT}
+      - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
 $(for i in $(seq 0 $((PROXY_COUNT - 1))); do echo "      - mtproxy-${PROXY_LABELS[$i]}"; done)
     networks:
@@ -942,6 +977,17 @@ PENTRY_EOF
 USERS_EOF
 
     log_ok "Файл пользователей создан"
+
+    # Создание auth.json с паролем
+    log_info "Создание файла авторизации..."
+    cat > "$INSTALL_DIR/config/auth.json" << AUTH_EOF
+{
+    "token": "${DASHBOARD_PASSWORD}",
+    "totp_secret": "",
+    "totp_enabled": false
+}
+AUTH_EOF
+    log_ok "Файл авторизации создан"
 
     # Создание файла настроек
     cat > "$INSTALL_DIR/config/settings.json" << SET_EOF
@@ -1343,6 +1389,7 @@ main() {
     step_install_docker
     step_proxy_config
     step_bot_config
+    step_dashboard_password
     step_socks5_config
     step_http_proxy_config
     step_adtag_config

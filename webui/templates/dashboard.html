@@ -88,7 +88,7 @@
 
 <div class="section">
     <h3>⚡ Быстрые действия</h3>
-    <p style="color:var(--text-secondary);margin-bottom:12px;">Быстрый переход к основным разделам управления.</p>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Быстрый переход к основным разделам управления и создание новых сервисов.</p>
     <div class="actions-grid">
         <a href="/clients" class="action-card"><span class="action-icon">👥</span><span>Управление клиентами</span></a>
         <a href="/nodes" class="action-card"><span class="action-icon">🖥️</span><span>Управление нодами</span></a>
@@ -96,6 +96,9 @@
         <a href="/stats" class="action-card"><span class="action-icon">📈</span><span>Статистика</span></a>
         <a href="/security" class="action-card"><span class="action-icon">🛡️</span><span>Безопасность</span></a>
         <a href="/backup" class="action-card"><span class="action-icon">💾</span><span>Бэкап</span></a>
+        <div class="action-card" onclick="createSocks5()" style="cursor:pointer;"><span class="action-icon">🧦</span><span>Создать SOCKS5</span></div>
+        <div class="action-card" onclick="createHttp()" style="cursor:pointer;"><span class="action-icon">🌐</span><span>Создать HTTP</span></div>
+        <div class="action-card" onclick="updateSystem()" style="cursor:pointer;"><span class="action-icon">🔄</span><span>Обновить систему</span></div>
     </div>
 </div>
 {% endblock %}
@@ -112,6 +115,47 @@ async function restartAll() {
     if (!confirm('Перезапустить все контейнеры?')) return;
     const res = await fetch('/api/system/restart', { method: 'POST' });
     if ((await res.json()).status === 'ok') { showToast('✅ Все контейнеры перезапускаются'); setTimeout(() => location.reload(), 3000); }
+}
+
+async function updateSystem() {
+    if (!confirm('Обновить систему? Контейнеры будут перезапущены.')) return;
+    showToast('Обновление...');
+    const res = await fetch('/api/system/update', { method: 'POST' });
+    const data = await res.json();
+    if (data.status === 'ok') { showToast('✅ Система обновлена!'); setTimeout(() => location.reload(), 3000); }
+    else { showToast('❌ Ошибка: ' + (data.message || 'Неизвестная')); }
+}
+
+async function createSocks5() {
+    const port = prompt('Порт SOCKS5:', '1080');
+    if (!port) return;
+    const user = prompt('Логин:', 'proxyuser') || 'proxyuser';
+    const password = prompt('Пароль:', '') || Math.random().toString(36).slice(-8);
+    const fd = new FormData();
+    fd.append('port', port); fd.append('user', user); fd.append('password', password);
+    showToast('Создание SOCKS5...');
+    const res = await fetch('/api/proxies/socks5/create', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.status === 'ok') {
+        showToast(`✅ SOCKS5 создан: ${user}:${password}@${data.port}`);
+        setTimeout(() => location.reload(), 2000);
+    } else { showToast('❌ Ошибка'); }
+}
+
+async function createHttp() {
+    const port = prompt('Порт HTTP/HTTPS:', '3128');
+    if (!port) return;
+    const user = prompt('Логин:', 'proxyuser') || 'proxyuser';
+    const password = prompt('Пароль:', '') || Math.random().toString(36).slice(-8);
+    const fd = new FormData();
+    fd.append('port', port); fd.append('user', user); fd.append('password', password);
+    showToast('Создание HTTP прокси...');
+    const res = await fetch('/api/proxies/http/create', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.status === 'ok') {
+        showToast(`✅ HTTP прокси создан: ${user}:${password}@${data.port}`);
+        setTimeout(() => location.reload(), 2000);
+    } else { showToast('❌ Ошибка'); }
 }
 </script>
 {% endblock %}
