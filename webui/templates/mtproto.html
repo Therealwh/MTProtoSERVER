@@ -39,8 +39,78 @@
 </div>
 
 <div class="section">
+    <h3>➕ Создать новый MTProto прокси</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Создайте дополнительный MTProto прокси на другом порту с другим доменом маскировки. Каждый прокси работает в отдельном Docker контейнере.</p>
+    <form id="create-mtproto-form" class="form-grid">
+        <div class="form-group">
+            <label>Название прокси</label>
+            <input type="text" name="label" placeholder="например: proxy2" required class="input">
+        </div>
+        <div class="form-group">
+            <label>Порт</label>
+            <input type="number" name="port" placeholder="444" required class="input">
+        </div>
+        <div class="form-group">
+            <label>Домен маскировки</label>
+            <select name="domain" class="input">
+                <option value="cloudflare.com">cloudflare.com</option>
+                <option value="1c.ru">1c.ru</option>
+                <option value="sberbank.ru">sberbank.ru</option>
+                <option value="yandex.ru">yandex.ru</option>
+                <option value="mail.ru">mail.ru</option>
+                <option value="vk.com">vk.com</option>
+                <option value="gosuslugi.ru">gosuslugi.ru</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Секрет (пусто = автогенерация)</label>
+            <input type="text" name="secret" placeholder="Авто" class="input">
+        </div>
+        <div class="form-group" style="display:flex;align-items:flex-end;">
+            <button type="submit" class="btn btn-primary">➕ Создать прокси</button>
+        </div>
+    </form>
+    <div id="create-mtproto-result" class="result-box" style="display:none;"></div>
+</div>
+
+<div class="section">
+    <h3>➕ Создать новый MTProto прокси</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Создайте дополнительный MTProto прокси на другом порту с другим доменом маскировки. Каждый прокси работает в отдельном Docker контейнере.</p>
+    <form id="create-mtproto-form" class="form-grid">
+        <div class="form-group">
+            <label>Название прокси</label>
+            <input type="text" name="label" placeholder="например: proxy2" required class="input">
+        </div>
+        <div class="form-group">
+            <label>Порт</label>
+            <input type="number" name="port" placeholder="444" required class="input">
+        </div>
+        <div class="form-group">
+            <label>Домен маскировки</label>
+            <select name="domain" class="input">
+                <option value="cloudflare.com">cloudflare.com</option>
+                <option value="1c.ru">1c.ru</option>
+                <option value="sberbank.ru">sberbank.ru</option>
+                <option value="yandex.ru">yandex.ru</option>
+                <option value="mail.ru">mail.ru</option>
+                <option value="vk.com">vk.com</option>
+                <option value="gosuslugi.ru">gosuslugi.ru</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Секрет (пусто = автогенерация)</label>
+            <input type="text" name="secret" placeholder="Авто" class="input">
+        </div>
+        <div class="form-group" style="display:flex;align-items:flex-end;">
+            <button type="submit" class="btn btn-primary">➕ Создать прокси</button>
+        </div>
+    </form>
+    <div id="create-mtproto-result" class="result-box" style="display:none;"></div>
+</div>
+
+<div class="section">
     <h3>🔄 Сменить домен маскировки</h3>
-    <p style="color:var(--text-secondary);margin-bottom:12px;">Если текущий домен заблокирован или вы хотите сменить маскировку. После смены нужно перезапустить прокси.</p>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Если текущий домен заблокирован или вы хотите сменить маскировку. При смене домена автоматически генерируется новый секрет.</p>
     <form id="domain-form" class="form-inline">
         <select name="domain" class="input">
             <option value="cloudflare.com">cloudflare.com (рекомендуется)</option>
@@ -51,7 +121,7 @@
             <option value="vk.com">vk.com</option>
             <option value="gosuslugi.ru">gosuslugi.ru</option>
         </select>
-        <button type="submit" class="btn btn-primary">🔄 Сменить домен</button>
+        <button type="submit" class="btn btn-primary">🔄 Сменить домен (новый секрет)</button>
     </form>
     <div id="domain-result" class="result-box" style="display:none;"></div>
 </div>
@@ -71,8 +141,8 @@
     <p style="color:var(--text-secondary);margin-bottom:12px;">Скопируйте эти ссылки и отправьте пользователям. Они откроют их в Telegram и подключатся к прокси.</p>
     {% if server_ip and settings.proxy_port %}
     <div class="proxy-link-box" style="margin-bottom:8px;">
-        <code>tg://proxy?server={{ server_ip }}&port={{ settings.proxy_port }}&secret=СЕКРЕТ_КЛИЕНТА</code>
-        <button class="btn btn-sm" onclick="navigator.clipboard.writeText('tg://proxy?server={{ server_ip }}&port={{ settings.proxy_port }}&secret=СЕКРЕТ_КЛИЕНТА')">📋</button>
+        <code id="mtproto-link">tg://proxy?server={{ server_ip }}&port={{ settings.proxy_port }}&secret=СЕКРЕТ_КЛИЕНТА</code>
+        <button class="btn btn-sm" onclick="copyText(document.getElementById('mtproto-link').textContent)">📋</button>
     </div>
     {% endif %}
     <p style="color:var(--text-secondary);font-size:13px;">⚠️ Вместо "СЕКРЕТ_КЛИЕНТА" подставьте секрет конкретного клиента со страницы "Клиенты".</p>
@@ -110,22 +180,59 @@ async function generateSecret() {
     r.style.display = 'block';
     r.className = 'result-box success';
     r.innerHTML = `<p>✅ Новый секрет:</p>
-        <code style="word-break:break-all;">${data.secret}</code>
+        <code style="word-break:break-all;" id="new-secret">${data.secret}</code>
         <p style="margin-top:8px;">Домен: <strong>${data.domain}</strong></p>
-        <button class="btn btn-sm" onclick="navigator.clipboard.writeText('${data.secret}')">📋 Копировать</button>`;
+        <p>Ссылка: <code id="new-link">tg://proxy?server={{ server_ip }}&port={{ settings.proxy_port }}&secret=${data.secret}</code></p>
+        <button class="btn btn-sm" onclick="copyText(document.getElementById('new-link').textContent)">📋 Копировать ссылку</button>`;
 }
+
+document.getElementById('create-mtproto-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    const result = document.getElementById('create-mtproto-result');
+    result.style.display = 'block'; result.textContent = 'Создание прокси...';
+    try {
+        const res = await fetch('/api/mtproto/create', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            result.className = 'result-box success';
+            result.innerHTML = `<p>✅ MTProto прокси создан!</p>
+                <p>Название: <strong>${data.label}</strong> | Порт: <strong>${data.port}</strong></p>
+                <p>Секрет: <code>${data.secret}</code></p>
+                <p>Ссылка: <code>${data.link}</code></p>
+                <button class="btn btn-sm" onclick="copyText('${data.link}')">📋 Копировать</button>
+                <p style="margin-top:8px;color:var(--text-secondary);">Перезагрузите страницу через 5 секунд.</p>`;
+            setTimeout(() => location.reload(), 5000);
+        } else {
+            result.className = 'result-box error';
+            result.textContent = '❌ Ошибка: ' + (data.message || 'Неизвестная');
+        }
+    } catch (err) {
+        result.className = 'result-box error';
+        result.textContent = '❌ Ошибка: ' + err.message;
+    }
+});
 
 document.getElementById('domain-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;
     const formData = new FormData(form);
     const result = document.getElementById('domain-result');
+    result.style.display = 'block'; result.textContent = 'Смена домена и генерация секрета...';
     try {
+        const secRes = await fetch('/api/mtproto/generate-secret');
+        const secData = await secRes.json();
         const res = await fetch('/api/system/rotate-domain', { method: 'POST', body: formData });
         const data = await res.json();
         result.style.display = 'block';
         result.className = 'result-box success';
-        result.textContent = '✅ Домен изменён на: ' + data.domain + '. Перезапустите прокси для применения.';
+        result.innerHTML = `<p>✅ Домен изменён на: <strong>${data.domain}</strong></p>
+            <p>Новый секрет: <code>${secData.secret}</code></p>
+            <p>Ссылка: <code>tg://proxy?server={{ server_ip }}&port={{ settings.proxy_port }}&secret=${secData.secret}</code></p>
+            <button class="btn btn-sm" onclick="copyText('tg://proxy?server={{ server_ip }}&port={{ settings.proxy_port }}&secret=${secData.secret}')">📋 Копировать</button>
+            <p style="margin-top:8px;color:var(--text-secondary);">Перезагрузите страницу через 5 секунд.</p>`;
+        setTimeout(() => location.reload(), 5000);
     } catch (err) {
         result.style.display = 'block';
         result.className = 'result-box error';

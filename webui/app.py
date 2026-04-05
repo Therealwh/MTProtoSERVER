@@ -44,8 +44,11 @@ init_files()
 
 def get_settings():
     s = load_json(SETTINGS_FILE)
-    # Get external IP if not set
-    if not s.get('proxy_ip') or s.get('proxy_ip') == '0.0.0.0':
+    # Get external IP from env var first, then try curl, then fallback
+    env_ip = os.environ.get('PROXY_IP', '')
+    if env_ip and env_ip != '0.0.0.0':
+        s['proxy_ip'] = env_ip
+    elif not s.get('proxy_ip') or s.get('proxy_ip') == '0.0.0.0':
         try:
             r = subprocess.run(['curl', '-s', '--max-time', '5', 'ifconfig.me'], capture_output=True, text=True, timeout=10)
             if r.stdout.strip(): s['proxy_ip'] = r.stdout.strip()
@@ -294,7 +297,7 @@ async def create_socks5(request: Request):
         subprocess.run(['docker','rm','-f','mtproto-socks5'], capture_output=True, timeout=10)
         subprocess.run(['docker','run','-d','--name','mtproto-socks5','--restart','unless-stopped','-p',f'{port}:1080','-v',f'{HOST_DIR}/config/socks5.conf:/etc/sockd.conf:ro','--cap-add','NET_ADMIN','--network','mtprotoserver_mtproto-net','vimagick/dante'], capture_output=True, timeout=30)
     except: pass
-    return JSONResponse({'status':'ok','port':port,'user':user or 'без логина','password':pw or 'без пароля'})
+    return JSONResponse({'status':'ok','port':port,'user':user,'password':pw,'no_auth':not user and not pw})
 
 @app.post("/api/proxies/http/create")
 async def create_http(request: Request):
@@ -475,6 +478,84 @@ async def generate_secret():
     dom = get_settings().get('fake_domain','cloudflare.com')
     secret = f"ee{sec.token_hex(14)}{dom.encode().hex()}"
     return JSONResponse({'status':'ok','secret':secret,'domain':dom})
+
+# Create new MTProto proxy instance
+@app.post("/api/mtproto/create")
+async def create_mtproto(request: Request):
+    form = await request.form()
+    label = form.get('label', 'proxy')
+    port = int(form.get('port', 443) or 443)
+    domain = form.get('domain', get_settings().get('fake_domain', 'cloudflare.com'))
+    secret = form.get('secret', '')
+    if not secret:
+        secret = f"ee{sec.token_hex(14)}{domain.encode().hex()}"
+    s = get_settings()
+    # Open port
+    try: subprocess.run(['ufw', 'allow', str(port)+'/tcp'], capture_output=True, timeout=10)
+    except: pass
+    # Create container
+    container_name = f'mtproto-proxy-{label}'
+    try:
+        subprocess.run(['docker', 'rm', '-f', container_name], capture_output=True, timeout=10)
+        subprocess.run(['docker', 'run', '-d', '--name', container_name, '--restart', 'unless-stopped',
+                       '-p', f'{port}:{port}', '--network', 'mtprotoserver_mtproto-net',
+                       'nineseconds/mtg:2', 'simple-run', '-n', '1.1.1.1', '-i', 'prefer-ipv4',
+                       f'0.0.0.0:{port}', secret], capture_output=True, timeout=30)
+    except Exception as e:
+        return JSONResponse({'status': 'error', 'message': str(e)}, status_code=500)
+    # Update proxy count
+    s['proxy_count'] = s.get('proxy_count', 1) + 1
+    save_settings(s)
+    return JSONResponse({'status': 'ok', 'label': label, 'port': port, 'secret': secret,
+                        'link': proxy_link(s.get('proxy_ip', '0.0.0.0'), port, secret)})
+
+@app.post("/api/mtproto/{label}/delete")
+async def delete_mtproto(label: str):
+    s = get_settings()
+    s['proxy_count'] = max(0, s.get('proxy_count', 1) - 1)
+    save_settings(s)
+    try: subprocess.run(['docker', 'rm', '-f', f'mtproto-proxy-{label}'], capture_output=True, timeout=10)
+    except: pass
+    return JSONResponse({'status': 'ok'})
+
+# Create new MTProto proxy instance
+@app.post("/api/mtproto/create")
+async def create_mtproto(request: Request):
+    form = await request.form()
+    label = form.get('label', 'proxy')
+    port = int(form.get('port', 443) or 443)
+    domain = form.get('domain', get_settings().get('fake_domain', 'cloudflare.com'))
+    secret = form.get('secret', '')
+    if not secret:
+        secret = f"ee{sec.token_hex(14)}{domain.encode().hex()}"
+    s = get_settings()
+    # Open port
+    try: subprocess.run(['ufw', 'allow', str(port)+'/tcp'], capture_output=True, timeout=10)
+    except: pass
+    # Create container
+    container_name = f'mtproto-proxy-{label}'
+    try:
+        subprocess.run(['docker', 'rm', '-f', container_name], capture_output=True, timeout=10)
+        subprocess.run(['docker', 'run', '-d', '--name', container_name, '--restart', 'unless-stopped',
+                       '-p', f'{port}:{port}', '--network', 'mtprotoserver_mtproto-net',
+                       'nineseconds/mtg:2', 'simple-run', '-n', '1.1.1.1', '-i', 'prefer-ipv4',
+                       f'0.0.0.0:{port}', secret], capture_output=True, timeout=30)
+    except Exception as e:
+        return JSONResponse({'status': 'error', 'message': str(e)}, status_code=500)
+    # Update proxy count
+    s['proxy_count'] = s.get('proxy_count', 1) + 1
+    save_settings(s)
+    return JSONResponse({'status': 'ok', 'label': label, 'port': port, 'secret': secret,
+                        'link': proxy_link(s.get('proxy_ip', '0.0.0.0'), port, secret)})
+
+@app.post("/api/mtproto/{label}/delete")
+async def delete_mtproto(label: str):
+    s = get_settings()
+    s['proxy_count'] = max(0, s.get('proxy_count', 1) - 1)
+    save_settings(s)
+    try: subprocess.run(['docker', 'rm', '-f', f'mtproto-proxy-{label}'], capture_output=True, timeout=10)
+    except: pass
+    return JSONResponse({'status': 'ok'})
 
 # SECURITY API
 @app.get("/api/security/ip-lists")
