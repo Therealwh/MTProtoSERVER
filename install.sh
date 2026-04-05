@@ -609,60 +609,80 @@ step_notification_config() {
 # ============================================================
 
 step_download_files() {
-    print_step "10" "Скачивание файлов проекта"
+    print_step "8" "Скачивание файлов проекта"
 
     log_info "Скачивание файлов с GitHub..."
 
-    # Создаём временную директорию
-    local tmp_dir=$(mktemp -d)
+    # Всегда скачиваем напрямую в INSTALL_DIR, удаляя старое
+    log_info "Удаление старых файлов..."
+    rm -rf "$INSTALL_DIR/webui" "$INSTALL_DIR/bot" "$INSTALL_DIR/scripts"
+    mkdir -p "$INSTALL_DIR/webui/templates" "$INSTALL_DIR/webui/static/css" "$INSTALL_DIR/webui/static/js"
+    mkdir -p "$INSTALL_DIR/bot"
+    mkdir -p "$INSTALL_DIR/scripts"
 
-    # Список файлов для скачивания
-    local files=(
-        "webui/Dockerfile"
-        "webui/requirements.txt"
-        "webui/app.py"
-        "webui/templates/base.html"
-        "webui/templates/index.html"
-        "webui/templates/users.html"
-        "webui/templates/proxies.html"
-        "webui/templates/stats.html"
-        "webui/templates/settings.html"
-        "webui/templates/diagnostics.html"
-        "webui/static/css/style.css"
-        "webui/static/js/app.js"
-        "bot/Dockerfile"
-        "bot/requirements.txt"
-        "bot/bot.py"
-        "scripts/auto-heal.sh"
-        "scripts/auto-update.sh"
-        "scripts/backup.sh"
-        "scripts/health-check.sh"
-        "scripts/monitor.sh"
-        "scripts/rotate-domain.sh"
-        "scripts/speedtest.sh"
-        "scripts/add-proxy.sh"
-        "scripts/remove-proxy.sh"
-    )
-
+    local base="${REPO_URL}"
     local downloaded=0
     local failed=0
 
-    for file in "${files[@]}"; do
-        local dir=$(dirname "$file")
-        mkdir -p "$tmp_dir/$dir"
-
-        if curl -fsSL -o "$tmp_dir/$file" "${REPO_URL}/${file}" 2>/dev/null; then
+    download_file() {
+        local rel_path="$1"
+        local dest="$INSTALL_DIR/$rel_path"
+        mkdir -p "$(dirname "$dest")"
+        if curl -fsSL --max-time 30 -o "$dest" "${base}/${rel_path}" 2>/dev/null; then
             downloaded=$((downloaded + 1))
         else
-            log_warn "Не удалось скачать: $file"
+            log_warn "Не удалось скачать: $rel_path"
             failed=$((failed + 1))
         fi
-    done
+    }
+
+    # Web UI
+    download_file "webui/Dockerfile"
+    download_file "webui/requirements.txt"
+    download_file "webui/app.py"
+    download_file "webui/templates/base.html"
+    download_file "webui/templates/dashboard.html"
+    download_file "webui/templates/clients.html"
+    download_file "webui/templates/nodes.html"
+    download_file "webui/templates/stats.html"
+    download_file "webui/templates/settings.html"
+    download_file "webui/templates/security.html"
+    download_file "webui/templates/logs.html"
+    download_file "webui/templates/backup.html"
+    download_file "webui/templates/socks5.html"
+    download_file "webui/templates/http_proxy.html"
+    download_file "webui/static/css/style.css"
+    download_file "webui/static/js/app.js"
+
+    # Bot
+    download_file "bot/Dockerfile"
+    download_file "bot/requirements.txt"
+    download_file "bot/bot.py"
+
+    # Scripts
+    download_file "scripts/auto-heal.sh"
+    download_file "scripts/auto-update.sh"
+    download_file "scripts/backup.sh"
+    download_file "scripts/health-check.sh"
+    download_file "scripts/monitor.sh"
+    download_file "scripts/rotate-domain.sh"
+    download_file "scripts/speedtest.sh"
+    download_file "scripts/add-proxy.sh"
+    download_file "scripts/remove-proxy.sh"
+
+    # Agent
+    download_file "agent/Dockerfile"
+    download_file "agent/agent.py"
+    download_file "agent/requirements.txt"
+    download_file "agent/install.sh"
+
+    chmod +x "$INSTALL_DIR/scripts/"*.sh 2>/dev/null || true
 
     log_ok "Скачано: $downloaded файлов, ошибок: $failed"
 
-    # Сохраняем во временную директорию для использования позже
-    DOWNLOAD_TMP_DIR="$tmp_dir"
+    if [ $failed -gt 5 ]; then
+        log_warn "Много ошибок скачивания. Проверьте интернет-соединение."
+    fi
 
     read -p "Нажмите Enter для продолжения..."
 }
@@ -1045,32 +1065,20 @@ SQUID_CONF
 # ============================================================
 
 step_copy_files() {
-    print_step "7" "Установка файлов проекта"
+    print_step "9" "Проверка установленных файлов"
 
-    if [ -n "${DOWNLOAD_TMP_DIR:-}" ] && [ -d "$DOWNLOAD_TMP_DIR" ]; then
-        # Копируем webui
-        if [ -d "$DOWNLOAD_TMP_DIR/webui" ]; then
-            cp -r "$DOWNLOAD_TMP_DIR/webui/"* "$INSTALL_DIR/webui/"
-            log_ok "Файлы Web UI установлены"
+    local missing=0
+    for f in webui/app.py webui/Dockerfile bot/bot.py bot/Dockerfile scripts/auto-heal.sh; do
+        if [ ! -f "$INSTALL_DIR/$f" ]; then
+            log_warn "Отсутствует: $f"
+            missing=$((missing + 1))
         fi
+    done
 
-        # Копируем bot
-        if [ -d "$DOWNLOAD_TMP_DIR/bot" ]; then
-            cp -r "$DOWNLOAD_TMP_DIR/bot/"* "$INSTALL_DIR/bot/"
-            log_ok "Файлы бота установлены"
-        fi
-
-        # Копируем scripts
-        if [ -d "$DOWNLOAD_TMP_DIR/scripts" ]; then
-            cp "$DOWNLOAD_TMP_DIR/scripts/"* "$INSTALL_DIR/scripts/"
-            chmod +x "$INSTALL_DIR/scripts/"*.sh
-            log_ok "Вспомогательные скрипты установлены"
-        fi
-
-        # Очищаем временную директорию
-        rm -rf "$DOWNLOAD_TMP_DIR"
+    if [ $missing -eq 0 ]; then
+        log_ok "Все файлы установлены корректно"
     else
-        log_warn "Файлы не были скачаны. Создаём минимальные версии..."
+        log_warn "Отсутствуют $missing файлов. Создаём минимальные версии..."
         create_minimal_files
     fi
 
@@ -1099,6 +1107,7 @@ python-multipart==0.0.6
 qrcode==7.4.2
 pillow==10.2.0
 psutil==5.9.8
+requests==2.31.0
 EOF
 
     # Минимальный бот
@@ -1128,7 +1137,7 @@ EOF
 # ============================================================
 
 step_setup_autostart() {
-    print_step "8" "Настройка автозапуска"
+    print_step "10" "Настройка автозапуска"
 
     log_info "Настройка systemd сервисов..."
 
@@ -1173,13 +1182,22 @@ TIMER_EOF
 # ============================================================
 
 step_start() {
-    print_step "9" "Запуск MTProto прокси"
+    print_step "11" "Запуск MTProto прокси"
 
     cd "$INSTALL_DIR"
 
-    log_info "Запуск контейнеров..."
+    # Останавливаем старое
+    log_info "Остановка старых контейнеров..."
+    docker compose down 2>/dev/null || true
+
+    # Удаляем старые образы чтобы пересобрать
+    log_info "Удаление старых образов..."
+    docker rmi mtprotoserver-webui 2>/dev/null || true
+    docker rmi mtprotoserver-bot 2>/dev/null || true
+
+    log_info "Запуск контейнеров (пересборка)..."
     docker compose pull
-    docker compose up -d
+    docker compose up -d --build --force-recreate
 
     sleep 5
 
@@ -1204,7 +1222,7 @@ step_start() {
 # ============================================================
 
 step_summary() {
-    print_step "10" "Установка завершена!"
+    print_step "12" "Установка завершена!"
 
     print_sep
     echo -e "${GREEN}${E_OK}  MTProtoSERVER успешно установлен!${NC}"
