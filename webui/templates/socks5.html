@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}SOCKS5 прокси - MTProtoSERVER{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>🧦 SOCKS5 прокси</h2>
+    <p>Универсальный прокси для любых приложений</p>
+</div>
+
+<div class="section">
+    <h3>📊 Статус SOCKS5</h3>
+    {% if settings.socks5_enabled %}
+    <div class="proxy-card proxy-active" style="max-width:600px;">
+        <div class="proxy-header">
+            <h4>SOCKS5 Dante</h4>
+            <span class="badge badge-success">Работает</span>
+        </div>
+        <div class="proxy-details">
+            <div><span>Порт:</span> <strong>{{ settings.socks5_port }}</strong></div>
+            <div><span>Логин:</span> <strong>{{ settings.socks5_user }}</strong></div>
+            <div><span>Пароль:</span> <strong>••••••••</strong></div>
+        </div>
+        <div class="proxy-link-box">
+            <code>socks5://{{ settings.socks5_user }}:{{ settings.socks5_pass }}@{{ settings.proxy_ip }}:{{ settings.socks5_port }}</code>
+            <button class="btn btn-sm" onclick="navigator.clipboard.writeText('socks5://{{ settings.socks5_user }}:{{ settings.socks5_pass }}@{{ settings.proxy_ip }}:{{ settings.socks5_port }}'); showToast('Скопировано!')">📋</button>
+        </div>
+    </div>
+    {% else %}
+    <p style="color: var(--text-secondary);">SOCKS5 прокси не установлен. Установите при переустановке.</p>
+    {% endif %}
+</div>
+
+<div class="section">
+    <h3>📱 Как использовать</h3>
+    <div class="tips-list">
+        <div class="tip-item">
+            <span class="tip-icon">🌐</span>
+            <span><strong>Браузер:</strong> Настройки → Прокси → SOCKS5 → IP:{{ settings.socks5_port }}, логин: {{ settings.socks5_user }}</span>
+        </div>
+        <div class="tip-item">
+            <span class="tip-icon">📱</span>
+            <span><strong>Telegram:</strong> Настройки → Данные и память → Прокси → SOCKS5</span>
+        </div>
+        <div class="tip-item">
+            <span class="tip-icon">💻</span>
+            <span><strong>Системный:</strong> Настройте SOCKS5 в настройках сети вашей ОС</span>
+        </div>
+        <div class="tip-item">
+            <span class="tip-icon">🔧</span>
+            <span><strong>cURL:</strong> <code>curl -x socks5://{{ settings.socks5_user }}:PASSWORD@{{ settings.proxy_ip }}:{{ settings.socks5_port }} https://ifconfig.me</code></span>
+        </div>
+    </div>
+</div>
+
+{% if settings.socks5_enabled %}
+<div class="section">
+    <h3>👥 Пользователи SOCKS5</h3>
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Логин</th>
+                    <th>Пароль</th>
+                    <th>Подключение</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{{ settings.socks5_user }}</td>
+                    <td><code>{{ settings.socks5_pass }}</code></td>
+                    <td><code>socks5://{{ settings.socks5_user }}:{{ settings.socks5_pass }}@{{ settings.proxy_ip }}:{{ settings.socks5_port }}</code></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

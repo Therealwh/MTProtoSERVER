@@ -26,6 +26,10 @@
                 <span class="nav-icon">🌐</span>
                 <span>Прокси</span>
             </a>
+            <a href="/socks5" class="nav-link {% if request.url.path == '/socks5' %}active{% endif %}">
+                <span class="nav-icon">🧦</span>
+                <span>SOCKS5</span>
+            </a>
             <a href="/stats" class="nav-link {% if request.url.path == '/stats' %}active{% endif %}">
                 <span class="nav-icon">📈</span>
                 <span>Статистика</span>

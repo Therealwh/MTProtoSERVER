@@ -145,6 +145,14 @@ async def proxies_page(request: Request):
         "settings": settings
     })
 
+@app.get("/socks5", response_class=HTMLResponse)
+async def socks5_page(request: Request):
+    settings = get_settings()
+    return templates.TemplateResponse("socks5.html", {
+        "request": request,
+        "settings": settings
+    })
+
 @app.get("/stats", response_class=HTMLResponse)
 async def stats_page(request: Request):
     users_data = get_users()
@@ -362,7 +370,11 @@ async def api_status():
         'users_count': len(users),
         'active_users': len([u for u in users if u.get('enabled')]),
         'system': system,
-        'containers': containers
+        'containers': containers,
+        'socks5_enabled': settings.get('socks5_enabled', False),
+        'socks5_port': settings.get('socks5_port'),
+        'ad_tag': settings.get('ad_tag', ''),
+        'geoblock': settings.get('geoblock_countries', '')
     })
 
 @app.get("/api/metrics")

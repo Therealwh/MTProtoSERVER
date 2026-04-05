@@ -36,6 +36,9 @@ E_GEAR="⚙️"
 E_FILE="📁"
 E_MAIL="📧"
 E_PHONE="📱"
+E_SOCKS="🧦"
+E_MONEY="💰"
+E_GLOBE="🌍"
 
 # Переменные
 INSTALL_DIR="/opt/mtprotoserver"
@@ -52,6 +55,12 @@ declare -a PROXY_PORTS=()
 declare -a PROXY_DOMAINS=()
 declare -a PROXY_SECRETS=()
 declare -a PROXY_LABELS=()
+SOCKS5_ENABLED="no"
+SOCKS5_PORT=1080
+SOCKS5_USER=""
+SOCKS5_PASS=""
+AD_TAG=""
+GEOBLOCK_COUNTRIES=""
 
 # ============================================================
 # Утилиты
@@ -420,11 +429,109 @@ step_bot_config() {
 }
 
 # ============================================================
-# ШАГ 5: Скачивание файлов с GitHub
+# ШАГ 5: SOCKS5 прокси
+# ============================================================
+
+step_socks5_config() {
+    print_step "5" "Настройка SOCKS5 прокси (Dante)"
+
+    echo -e "${CYAN}${E_SOCKS}  SOCKS5 прокси — универсальный прокси для любых приложений${NC}"
+    echo -e "   Работает на базе Dante — самый популярный SOCKS5 сервер"
+    echo -e "   Можно использовать в браузере, Telegram, и любых приложениях"
+    echo ""
+
+    read -p "Установить SOCKS5 прокси? [y/n] (по умолчанию n): " socks_choice
+    socks_choice=${socks_choice:-n}
+
+    if [[ "$socks_choice" =~ ^[Yy]$ ]]; then
+        SOCKS5_ENABLED="yes"
+
+        read -p "Порт SOCKS5 [1080]: " socks_port
+        SOCKS5_PORT=${socks_port:-1080}
+        log_ok "Порт SOCKS5: $SOCKS5_PORT"
+        echo ""
+
+        read -p "Логин для SOCKS5: " SOCKS5_USER
+        SOCKS5_USER=${SOCKS5_USER:-"proxyuser"}
+        log_ok "Логин: $SOCKS5_USER"
+
+        read -p "Пароль для SOCKS5: " SOCKS5_PASS
+        SOCKS5_PASS=${SOCKS5_PASS:-$(openssl rand -hex 8)}
+        log_ok "Пароль: $SOCKS5_PASS"
+    else
+        log_info "SOCKS5 прокси не будет установлен"
+    fi
+
+    read -p "Нажмите Enter для продолжения..."
+}
+
+# ============================================================
+# ШАГ 6: Ad-Tag монетизация
+# ============================================================
+
+step_adtag_config() {
+    print_step "6" "Ad-Tag монетизация (заработок)"
+
+    echo -e "${CYAN}${E_MONEY}  Ad-Tag — зарабатывайте на прокси через рекламу Telegram${NC}"
+    echo -e "   Получите Ad-Tag у @MTProxyBot в Telegram"
+    echo -e "   Пользователи увидят спонсорский канал, а вы будете получать доход"
+    echo ""
+
+    read -p "Установить Ad-Tag? [y/n] (по умолчанию n): " adtag_choice
+    adtag_choice=${adtag_choice:-n}
+
+    if [[ "$adtag_choice" =~ ^[Yy]$ ]]; then
+        echo -e "${WHITE}Как получить Ad-Tag:${NC}"
+        echo -e "  1. Откройте @MTProxyBot в Telegram"
+        echo -e "  2. Отправьте /newproxy"
+        echo -e "  3. Следуйте инструкциям"
+        echo -e "  4. Скопируйте полученный Ad-Tag (hex строка)"
+        echo ""
+        read -p "Введите Ad-Tag: " AD_TAG
+        if [ -n "$AD_TAG" ]; then
+            log_ok "Ad-Tag установлен: ${AD_TAG:0:8}..."
+        else
+            log_warn "Ad-Tag не введён"
+        fi
+    else
+        log_info "Ad-Tag не будет установлен"
+    fi
+
+    read -p "Нажмите Enter для продолжения..."
+}
+
+# ============================================================
+# ШАГ 7: GeoIP блокировка
+# ============================================================
+
+step_geoblock_config() {
+    print_step "7" "GeoIP блокировка стран"
+
+    echo -e "${CYAN}${E_GLOBE}  GeoIP — блокировка подключений из определённых стран${NC}"
+    echo -e "   Полезно для защиты от злоупотреблений"
+    echo -e "   Введите коды стран через запятую (или оставьте пустым)"
+    echo ""
+    echo -e "${WHITE}Примеры: CN (Китай), IR (Иран), KP (С.Корея), RU (Россия)${NC}"
+    echo ""
+
+    read -p "Заблокировать страны (коды через запятую, или Enter для пропуска): " GEOBLOCK_COUNTRIES
+    GEOBLOCK_COUNTRIES=$(echo "$GEOBLOCK_COUNTRIES" | tr -d ' ')
+
+    if [ -n "$GEOBLOCK_COUNTRIES" ]; then
+        log_ok "Будут заблокированы: $GEOBLOCK_COUNTRIES"
+    else
+        log_info "GeoIP блокировка отключена"
+    fi
+
+    read -p "Нажмите Enter для продолжения..."
+}
+
+# ============================================================
+# ШАГ 8: Скачивание файлов с GitHub
 # ============================================================
 
 step_download_files() {
-    print_step "5" "Скачивание файлов проекта"
+    print_step "8" "Скачивание файлов проекта"
 
     log_info "Скачивание файлов с GitHub..."
 
@@ -554,6 +661,25 @@ $(for i in $(seq 0 $((PROXY_COUNT - 1))); do echo "      - mtproxy-${PROXY_LABEL
       - mtproto-net
 
 WEBUI_EOF
+
+    # SOCKS5 (Dante)
+    if [[ "$SOCKS5_ENABLED" == "yes" ]]; then
+        cat >> "$INSTALL_DIR/docker-compose.yml" << SOCKS_EOF
+  socks5:
+    image: vimagick/dante
+    container_name: mtproto-socks5
+    restart: unless-stopped
+    ports:
+      - "${SOCKS5_PORT}:1080"
+    volumes:
+      - ./config/socks5.conf:/etc/sockd.conf:ro
+    cap_add:
+      - NET_ADMIN
+    networks:
+      - mtproto-net
+
+SOCKS_EOF
+    fi
 
     # Bot
     if [[ "$BOT_ENABLED" == "yes" ]]; then
@@ -712,6 +838,12 @@ USERS_EOF
     "bot_enabled": ${BOT_ENABLED},
     "bot_token": "${BOT_TOKEN}",
     "admin_chat_id": "${ADMIN_CHAT_ID}",
+    "socks5_enabled": ${SOCKS5_ENABLED},
+    "socks5_port": ${SOCKS5_PORT},
+    "socks5_user": "${SOCKS5_USER}",
+    "socks5_pass": "${SOCKS5_PASS}",
+    "ad_tag": "${AD_TAG}",
+    "geoblock_countries": "${GEOBLOCK_COUNTRIES}",
     "auto_heal": true,
     "auto_update": true,
     "backup_enabled": true,
@@ -751,6 +883,29 @@ DOM_EOF
 GEO_EOF
 
     log_ok "GeoIP файл создан"
+
+    # SOCKS5 конфиг
+    if [[ "$SOCKS5_ENABLED" == "yes" ]]; then
+        cat > "$INSTALL_DIR/config/socks5.conf" << SOCKS_CONF
+logoutput: stderr
+internal: 0.0.0.0 port = 1080
+external: eth0
+clientmethod: none
+socksmethod: username
+user.privileged: root
+user.notprivileged: sockd
+user.libwrap: nobody
+client pass {
+    from: 0.0.0.0/0 to: 0.0.0.0/0
+}
+socks pass {
+    from: 0.0.0.0/0 to: 0.0.0.0/0
+    user: ${SOCKS5_USER}
+    password: ${SOCKS5_PASS}
+}
+SOCKS_CONF
+        log_ok "SOCKS5 конфиг создан"
+    fi
 
     read -p "Нажмите Enter для продолжения..."
 }
@@ -950,6 +1105,19 @@ step_summary() {
         echo ""
     fi
 
+    if [[ "$SOCKS5_ENABLED" == "yes" ]]; then
+        echo -e "${WHITE}${E_SOCKS}  SOCKS5 прокси:${NC}"
+        echo -e "   Порт: ${SOCKS5_PORT} | Логин: ${SOCKS5_USER} | Пароль: ${SOCKS5_PASS}"
+        echo -e "   ${CYAN}socks5://${SOCKS5_USER}:${SOCKS5_PASS}@${SERVER_IP}:${SOCKS5_PORT}${NC}"
+        echo ""
+    fi
+
+    if [[ -n "$AD_TAG" ]]; then
+        echo -e "${WHITE}${E_MONEY}  Ad-Tag монетизация:${NC}"
+        echo -e "   Установлен: ${AD_TAG:0:8}..."
+        echo ""
+    fi
+
     echo -e "${WHITE}${E_FILE}  Каталог установки:${NC}"
     echo -e "   $INSTALL_DIR"
     echo ""
@@ -992,6 +1160,9 @@ main() {
     echo -e "Этот скрипт установит полноценный MTProto прокси с:"
     echo -e "  ${E_SHIELD} FakeTLS маскировкой (обход блокировок)"
     echo -e "  ${E_NET} Несколькими прокси (разные порты/домены)"
+    echo -e "  ${E_SOCKS} SOCKS5 прокси (опционально)"
+    echo -e "  ${E_MONEY} Ad-Tag монетизацией (опционально)"
+    echo -e "  ${E_GLOBE} GeoIP блокировкой стран (опционально)"
     echo -e "  ${E_NET} Web панелью управления"
     echo -e "  ${E_BOT} Telegram ботом (опционально)"
     echo -e "  ${E_CHART} Статистикой и мониторингом"
@@ -1009,6 +1180,9 @@ main() {
     step_install_docker
     step_proxy_config
     step_bot_config
+    step_socks5_config
+    step_adtag_config
+    step_geoblock_config
     step_download_files
     step_create_config
     step_copy_files
