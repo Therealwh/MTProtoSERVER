@@ -778,6 +778,8 @@ def get_all_mtproto():
     ip = s.get('proxy_ip', '0.0.0.0')
     proxies = []
     pd = load_json(os.path.join(DATA_DIR, 'proxies.json'))
+    # Telegram DC IP ranges to exclude (outgoing connections)
+    tg_prefixes = ('149.154.', '95.161.', '91.108.')
     for p in pd.get('proxies', []):
         if p.get('enabled', True):
             port = p.get('port', 0)
@@ -802,11 +804,12 @@ def get_all_mtproto():
                                 if len(parts) >= 4 and parts[3] == '01':  # ESTABLISHED
                                     local = parts[1].split(':')
                                     if len(local) >= 2 and local[1].upper() == hex_port:
-                                        # This is a client connection (local port = proxy port)
+                                        # Only incoming connections (local port = proxy port)
                                         rip_hex = parts[2].split(':')[0]
                                         if len(rip_hex) == 8:
                                             rip = '.'.join([str(int(rip_hex[i:i+2], 16)) for i in (6,4,2,0)])
-                                            if rip not in ('127.0.0.1', '0.0.0.0'):
+                                            # Exclude Telegram DC IPs (outgoing connections)
+                                            if rip not in ('127.0.0.1', '0.0.0.0') and not rip.startswith(tg_prefixes):
                                                 seen_ips.add(rip)
                             unique_ips = len(seen_ips)
                             connected_ips = sorted(list(seen_ips))
