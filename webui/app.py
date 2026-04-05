@@ -189,6 +189,14 @@ async def backup_page(request: Request):
         "request": request
     })
 
+@app.get("/security", response_class=HTMLResponse)
+async def security_page(request: Request):
+    settings = get_settings()
+    return templates.TemplateResponse("security.html", {
+        "request": request,
+        "settings": settings
+    })
+
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
     settings = get_settings()
@@ -616,3 +624,115 @@ async def test_webhook(request: Request):
         return JSONResponse({'status': 'ok', 'response_code': r.status_code})
     except Exception as e:
         return JSONResponse({'status': 'error', 'message': str(e)}, status_code=500)
+
+# =================== SECURITY API ===================
+
+@app.get("/api/security/ip-lists")
+async def get_ip_lists():
+    settings = get_settings()
+    return JSONResponse({
+        'blacklist': settings.get('ip_blacklist', []),
+        'whitelist': settings.get('ip_whitelist', [])
+    })
+
+@app.post("/api/security/blacklist/add")
+async def add_to_blacklist(request: Request):
+    form = await request.form()
+    ip = form.get('ip', '')
+    settings = get_settings()
+    bl = settings.get('ip_blacklist', [])
+    if ip not in bl:
+        bl.append(ip)
+        settings['ip_blacklist'] = bl
+        save_json(SETTINGS_FILE, settings)
+    return JSONResponse({'status': 'ok'})
+
+@app.post("/api/security/blacklist/remove")
+async def remove_from_blacklist(request: Request):
+    form = await request.form()
+    ip = form.get('ip', '')
+    settings = get_settings()
+    bl = settings.get('ip_blacklist', [])
+    settings['ip_blacklist'] = [x for x in bl if x != ip]
+    save_json(SETTINGS_FILE, settings)
+    return JSONResponse({'status': 'ok'})
+
+@app.post("/api/security/whitelist/add")
+async def add_to_whitelist(request: Request):
+    form = await request.form()
+    ip = form.get('ip', '')
+    settings = get_settings()
+    wl = settings.get('ip_whitelist', [])
+    if ip not in wl:
+        wl.append(ip)
+        settings['ip_whitelist'] = wl
+        save_json(SETTINGS_FILE, settings)
+    return JSONResponse({'status': 'ok'})
+
+@app.post("/api/security/whitelist/remove")
+async def remove_from_whitelist(request: Request):
+    form = await request.form()
+    ip = form.get('ip', '')
+    settings = get_settings()
+    wl = settings.get('ip_whitelist', [])
+    settings['ip_whitelist'] = [x for x in wl if x != ip]
+    save_json(SETTINGS_FILE, settings)
+    return JSONResponse({'status': 'ok'})
+
+@app.post("/api/security/firewall")
+async def manage_firewall(request: Request):
+    form = await request.form()
+    port = form.get('port', '')
+    action = form.get('action', 'allow')
+    try:
+        if action == 'allow':
+            subprocess.run(['ufw', 'allow', str(port) + '/tcp'], capture_output=True, timeout=10)
+        else:
+            subprocess.run(['ufw', 'deny', str(port) + '/tcp'], capture_output=True, timeout=10)
+        return JSONResponse({'status': 'ok'})
+    except:
+        return JSONResponse({'status': 'error', 'message': 'UFW недоступен'}, status_code=500)
+
+@app.get("/api/security/firewall")
+async def get_firewall_rules():
+    try:
+        r = subprocess.run(['ufw', 'status', 'numbered'], capture_output=True, text=True, timeout=10)
+        rules = []
+        if r.stdout:
+            for line in r.stdout.strip().split('\n')[2:]:
+                if line.strip():
+                    rules.append(line.strip())
+        return JSONResponse({'rules': rules})
+    except:
+        return JSONResponse({'rules': []})
+
+@app.post("/api/security/ratelimit")
+async def set_ratelimit(request: Request):
+    form = await request.form()
+    rate = int(form.get('rate', 100))
+    settings = get_settings()
+    settings['rate_limit'] = rate
+    save_json(SETTINGS_FILE, settings)
+    return JSONResponse({'status': 'ok', 'rate': rate})
+
+@app.get("/api/security/export")
+async def export_configs():
+    import zipfile
+    import tempfile
+    zip_path = tempfile.mktemp(suffix='.zip')
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for root, dirs, files in os.walk('/opt/mtprotoserver'):
+            if 'backups' in root or '.git' in root:
+                continue
+            for f in files:
+                fp = os.path.join(root, f)
+                arcname = os.path.relpath(fp, '/opt/mtprotoserver')
+                zf.write(fp, arcname)
+    
+    def iterfile():
+        with open(zip_path, 'rb') as f:
+            yield from f
+        os.unlink(zip_path)
+    
+    return StreamingResponse(iterfile(), media_type='application/zip',
+                            headers={'Content-Disposition': 'attachment; filename=mtprotoserver-configs.zip'})
