@@ -722,6 +722,8 @@ async def list_mtproto():
 
 @app.post("/api/mtproto/{label}/update")
 async def update_mtproto(label: str, request: Request):
+    from urllib.parse import unquote
+    label = unquote(label)
     form = await request.form()
     new_port = int(form.get('port', 0) or 0)
     new_domain = form.get('domain', '')
@@ -729,11 +731,11 @@ async def update_mtproto(label: str, request: Request):
     new_label = form.get('new_label', label)
     s = get_settings()
     ip = s.get('proxy_ip', '0.0.0.0')
-    cd = get_clients()
+    pd = load_json(os.path.join(DATA_DIR, 'proxies.json'))
     proxy = None
-    for c in cd.get('clients', []):
-        if c.get('label') == label:
-            proxy = c; break
+    for p in pd.get('proxies', []):
+        if p.get('label') == label:
+            proxy = p; break
     if not proxy:
         return JSONResponse({'status': 'error', 'message': 'Прокси не найден'}, status_code=404)
     port = new_port or proxy.get('port', 443)
@@ -754,42 +756,13 @@ async def update_mtproto(label: str, request: Request):
                        '-p', f'{port}:{port}', '--network', 'mtprotoserver_mtproto-net',
                        'nineseconds/mtg:2', 'simple-run', '-n', '1.1.1.1', '-i', 'prefer-ipv4',
                        f'0.0.0.0:{port}', secret], capture_output=True, timeout=30)
-    except Exception as e:
-        return JSONResponse({'status': 'error', 'message': str(e)}, status_code=500)
-    for c in cd.get('clients', []):
-        if c.get('label') == label:
-            c['label'] = new_label; c['port'] = port; c['domain'] = domain; c['secret'] = secret; break
-    save_clients(cd)
-    pd = load_json(os.path.join(DATA_DIR, 'proxies.json'))
+    except: pass
     for p in pd.get('proxies', []):
         if p.get('label') == label:
             p['label'] = new_label; p['port'] = port; p['domain'] = domain; p['secret'] = secret; break
     save_json(os.path.join(DATA_DIR, 'proxies.json'), pd)
     return JSONResponse({'status': 'ok', 'label': new_label, 'port': port, 'secret': secret,
                         'link': proxy_link(ip, port, secret)})
-
-@app.get("/api/mtproto/list")
-async def list_mtproto():
-    s = get_settings()
-    ip = s.get('proxy_ip', '0.0.0.0')
-    proxies = []
-    cd = get_clients()
-    for c in cd.get('clients', []):
-        proxies.append({
-            'label': c.get('label', ''), 'port': c.get('port', 0), 'domain': c.get('domain', ''),
-            'secret': c.get('secret', ''), 'enabled': c.get('enabled', True),
-            'link': proxy_link(ip, c.get('port', 0), c.get('secret', ''))
-        })
-    pd = load_json(os.path.join(DATA_DIR, 'proxies.json'))
-    for p in pd.get('proxies', []):
-        exists = any(x['label'] == p.get('label') for x in proxies)
-        if not exists:
-            proxies.append({
-                'label': p.get('label', ''), 'port': p.get('port', 0), 'domain': p.get('domain', ''),
-                'secret': p.get('secret', ''), 'enabled': p.get('enabled', True),
-                'link': proxy_link(ip, p.get('port', 0), p.get('secret', ''))
-            })
-    return JSONResponse({'proxies': proxies})
 
 # =================== PUBLIC API (no auth required) ===================
 
