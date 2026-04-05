@@ -97,6 +97,30 @@
                     </td>
                     <td>{{ c.unique_ips | default(0) }}</td>
                     <td>
+                        {% if c.connected_ips %}
+                        <details>
+                            <summary style="cursor:pointer;color:var(--accent);">{{ c.connected_ips | length }} IP</summary>
+                            {% for ip in c.connected_ips %}
+                            <small>{{ ip }}</small><br>
+                            {% endfor %}
+                        </details>
+                        {% else %}
+                        <span style="color:var(--text-secondary)">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if c.connected_ips %}
+                        <details>
+                            <summary style="cursor:pointer;color:var(--accent);">{{ c.connected_ips | length }} IP</summary>
+                            {% for ip in c.connected_ips %}
+                            <small>{{ ip }}</small><br>
+                            {% endfor %}
+                        </details>
+                        {% else %}
+                        <span style="color:var(--text-secondary)">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
                         {% if c.traffic_limit_gb > 0 %}
                         <span title="Трафик: {{ c.traffic_limit_gb }} ГБ">💾{{ c.traffic_limit_gb }}G</span>
                         {% endif %}
