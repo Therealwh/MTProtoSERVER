@@ -565,24 +565,47 @@ async def delete_mtproto(label: str):
 
 # =================== PUBLIC API (no auth required) ===================
 
-@app.get("/api/public/proxies")
-async def public_proxies():
-    """Публичный API — все прокси сервера для вашего сайта"""
+def get_all_mtproto():
+    """Get MTProto proxies from both clients.json and proxies.json"""
     s = get_settings()
     ip = s.get('proxy_ip', '0.0.0.0')
+    proxies = []
+    
+    # From clients.json
     cd = get_clients()
-    cl = cd.get('clients', [])
-    # MTProto прокси
-    mtproto = []
-    for c in cl:
+    for c in cd.get('clients', []):
         if c.get('enabled', True):
-            mtproto.append({
+            proxies.append({
                 'label': c.get('label', ''),
                 'port': c.get('port', 0),
                 'domain': c.get('domain', ''),
                 'secret': c.get('secret', ''),
                 'link': proxy_link(ip, c.get('port', 0), c.get('secret', ''))
             })
+    
+    # From proxies.json (created during install)
+    pd = load_json(os.path.join(DATA_DIR, 'proxies.json'))
+    for p in pd.get('proxies', []):
+        if p.get('enabled', True):
+            # Check if not already in list
+            exists = any(x['port'] == p.get('port') for x in proxies)
+            if not exists:
+                proxies.append({
+                    'label': p.get('label', ''),
+                    'port': p.get('port', 0),
+                    'domain': p.get('domain', ''),
+                    'secret': p.get('secret', ''),
+                    'link': proxy_link(ip, p.get('port', 0), p.get('secret', ''))
+                })
+    
+    return proxies
+
+@app.get("/api/public/proxies")
+async def public_proxies():
+    """Публичный API — все прокси сервера для вашего сайта"""
+    s = get_settings()
+    ip = s.get('proxy_ip', '0.0.0.0')
+    mtproto = get_all_mtproto()
     # SOCKS5
     socks5 = {
         'enabled': s.get('socks5_enabled', False),
@@ -606,20 +629,7 @@ async def public_proxies():
 @app.get("/api/public/mtproto")
 async def public_mtproto():
     """Публичный API — только MTProto прокси (массив ссылок)"""
-    s = get_settings()
-    ip = s.get('proxy_ip', '0.0.0.0')
-    cd = get_clients()
-    cl = cd.get('clients', [])
-    proxies = []
-    for c in cl:
-        if c.get('enabled', True):
-            proxies.append({
-                'label': c.get('label', ''),
-                'port': c.get('port', 0),
-                'domain': c.get('domain', ''),
-                'secret': c.get('secret', ''),
-                'link': proxy_link(ip, c.get('port', 0), c.get('secret', ''))
-            })
+    proxies = get_all_mtproto()
     return JSONResponse({'proxies': proxies, 'updated': datetime.now().strftime('%Y-%m-%dT%H:%M:%S')})
 
 @app.get("/api/public/docs", response_class=HTMLResponse)
