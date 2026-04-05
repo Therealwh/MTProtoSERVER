@@ -729,7 +729,7 @@ async def update_mtproto(label: str, request: Request):
 # =================== PUBLIC API (no auth required) ===================
 
 def get_all_mtproto():
-    """Get MTProto proxies from proxies.json (single source of truth)"""
+    """Get MTProto proxies from proxies.json with live connection counts"""
     s = get_settings()
     ip = s.get('proxy_ip', '0.0.0.0')
     proxies = []
@@ -737,23 +737,38 @@ def get_all_mtproto():
     for p in pd.get('proxies', []):
         if p.get('enabled', True):
             port = p.get('port', 0)
-            # Count active connections via ss
+            label = p.get('label', '')
+            # Count active connections via docker exec on proxy container
             unique_ips = 0
             try:
-                r = subprocess.run(['ss', '-tn', 'state', 'established', f'sport', f':{port}'],
+                # Try docker exec on the proxy container
+                container = f'mtproto-proxy-{label}'
+                r = subprocess.run(['docker', 'exec', container, 'ss', '-tn', 'state', 'established',
+                                   f'sport', f':{port}'],
                                   capture_output=True, text=True, timeout=5)
-                lines = r.stdout.strip().split('\n')[1:]  # skip header
-                ips = set()
-                for line in lines:
-                    parts = line.split()
-                    if len(parts) >= 5:
-                        remote = parts[4].rsplit(':', 1)[0]
-                        if remote and remote != '127.0.0.1':
-                            ips.add(remote)
-                unique_ips = len(ips)
-            except: pass
+                if r.returncode == 0:
+                    lines = r.stdout.strip().split('\n')[1:]
+                    ips = set()
+                    for line in lines:
+                        parts = line.split()
+                        if len(parts) >= 5:
+                            remote = parts[4].rsplit(':', 1)[0]
+                            if remote and remote != '127.0.0.1':
+                                ips.add(remote)
+                    unique_ips = len(ips)
+            except:
+                # Fallback: try host ss via /proc/net
+                try:
+                    with open('/proc/net/tcp', 'r') as f:
+                        for line in f:
+                            parts = line.strip().split()
+                            if len(parts) >= 10 and parts[3] == '01':  # ESTABLISHED
+                                local_port = int(parts[1].split(':')[1], 16)
+                                if local_port == port:
+                                    unique_ips += 1
+                except: pass
             proxies.append({
-                'label': p.get('label', ''),
+                'label': label,
                 'port': port,
                 'domain': p.get('domain', ''),
                 'secret': p.get('secret', ''),
