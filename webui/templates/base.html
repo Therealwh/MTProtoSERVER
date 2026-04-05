@@ -38,6 +38,10 @@
                 <span class="nav-icon">📋</span>
                 <span>Логи</span>
             </a>
+            <a href="/backup" class="nav-link {% if request.url.path == '/backup' %}active{% endif %}">
+                <span class="nav-icon">💾</span>
+                <span>Бэкап</span>
+            </a>
             <a href="/settings" class="nav-link {% if request.url.path == '/settings' %}active{% endif %}">
                 <span class="nav-icon">⚙️</span>
                 <span>Настройки</span>

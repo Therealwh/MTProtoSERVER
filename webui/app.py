@@ -175,6 +175,12 @@ async def logs_page(request: Request):
         "request": request
     })
 
+@app.get("/backup", response_class=HTMLResponse)
+async def backup_page(request: Request):
+    return templates.TemplateResponse("backup.html", {
+        "request": request
+    })
+
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
     settings = get_settings()
@@ -431,3 +437,119 @@ async def generate_qr(text: str):
     img.save(buf, format='PNG')
     buf.seek(0)
     return StreamingResponse(buf, media_type="image/png")
+
+@app.post("/api/socks5/add-user")
+async def add_socks5_user(request: Request):
+    form = await request.form()
+    user = form.get('user', '')
+    password = form.get('pass', '')
+    if not user or not password:
+        return JSONResponse({'status': 'error', 'message': 'Логин и пароль обязательны'}, status_code=400)
+
+    socks5_conf = '/opt/mtprotoserver/config/socks5.conf'
+    if os.path.exists(socks5_conf):
+        with open(socks5_conf, 'r') as f:
+            content = f.read()
+        new_rule = f"""socks pass {{
+    from: 0.0.0.0/0 to: 0.0.0.0/0
+    user: {user}
+    password: {password}
+}}
+"""
+        content = content.rstrip() + '\n' + new_rule
+        with open(socks5_conf, 'w') as f:
+            f.write(content)
+        return JSONResponse({'status': 'ok', 'user': user})
+    return JSONResponse({'status': 'error', 'message': 'SOCKS5 не установлен'}, status_code=400)
+
+@app.post("/api/system/backup")
+async def create_backup():
+    import datetime
+    backup_dir = '/opt/mtprotoserver/backups'
+    os.makedirs(backup_dir, exist_ok=True)
+    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f'backup_{timestamp}.tar.gz'
+    filepath = os.path.join(backup_dir, filename)
+    try:
+        subprocess.run(['tar', '-czf', filepath, '-C', '/opt/mtprotoserver',
+                        'config', 'data', 'docker-compose.yml'],
+                       capture_output=True, timeout=30)
+        size = os.path.getsize(filepath)
+        size_str = f"{size / 1024:.1f} KB" if size < 1024*1024 else f"{size / (1024*1024):.1f} MB"
+        return JSONResponse({'status': 'ok', 'filename': filename, 'size': size_str})
+    except Exception as e:
+        return JSONResponse({'status': 'error', 'message': str(e)}, status_code=500)
+
+@app.get("/api/system/backups")
+async def list_backups():
+    backup_dir = '/opt/mtprotoserver/backups'
+    backups = []
+    if os.path.exists(backup_dir):
+        for f in sorted(os.listdir(backup_dir), reverse=True):
+            if f.endswith('.tar.gz'):
+                size = os.path.getsize(os.path.join(backup_dir, f))
+                size_str = f"{size / 1024:.1f} KB" if size < 1024*1024 else f"{size / (1024*1024):.1f} MB"
+                backups.append({'name': f, 'size': size_str})
+    return JSONResponse({'backups': backups})
+
+@app.post("/api/system/restore")
+async def restore_backup(request: Request):
+    form = await request.form()
+    name = form.get('name', '')
+    backup_dir = '/opt/mtprotoserver/backups'
+    filepath = os.path.join(backup_dir, name)
+    if not os.path.exists(filepath):
+        return JSONResponse({'status': 'error', 'message': 'Бэкап не найден'}, status_code=404)
+    try:
+        subprocess.run(['tar', '-xzf', filepath, '-C', '/opt/mtprotoserver'],
+                       capture_output=True, timeout=30)
+        return JSONResponse({'status': 'ok'})
+    except Exception as e:
+        return JSONResponse({'status': 'error', 'message': str(e)}, status_code=500)
+
+@app.post("/api/system/delete-backup")
+async def delete_backup(request: Request):
+    form = await request.form()
+    name = form.get('name', '')
+    filepath = os.path.join('/opt/mtprotoserver/backups', name)
+    if os.path.exists(filepath):
+        os.remove(filepath)
+    return JSONResponse({'status': 'ok'})
+
+@app.get("/api/system/health")
+async def health_check():
+    checks = []
+    # Docker
+    try:
+        r = subprocess.run(['docker', 'info'], capture_output=True, timeout=5)
+        checks.append(f"{'✅' if r.returncode == 0 else '❌'} Docker: {'работает' if r.returncode == 0 else 'не работает'}")
+    except:
+        checks.append("❌ Docker: не доступен")
+
+    # Containers
+    try:
+        r = subprocess.run(['docker', 'ps', '--format', '{{.Names}} {{.Status}}'],
+                          capture_output=True, text=True, timeout=5)
+        if r.stdout.strip():
+            checks.append("✅ Контейнеры:")
+            for line in r.stdout.strip().split('\n'):
+                checks.append(f"   {line}")
+        else:
+            checks.append("⚠️ Контейнеры не запущены")
+    except:
+        checks.append("❌ Не удалось проверить контейнеры")
+
+    # Disk
+    disk = psutil.disk_usage('/')
+    checks.append(f"{'✅' if disk.percent < 90 else '⚠️'} Диск: {disk.percent}% использовано")
+
+    # RAM
+    mem = psutil.virtual_memory()
+    checks.append(f"{'✅' if mem.percent < 90 else '⚠️'} RAM: {mem.percent}% использовано")
+
+    # Config files
+    for f in ['config/settings.json', 'data/users.json', 'data/proxies.json']:
+        path = os.path.join('/opt/mtprotoserver', f)
+        checks.append(f"{'✅' if os.path.exists(path) else '❌'} {f}")
+
+    return JSONResponse({'status': 'ok', 'output': '\n'.join(checks)})

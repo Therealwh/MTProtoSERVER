@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-header">
     <h2>🧦 SOCKS5 прокси</h2>
-    <p>Универсальный прокси для любых приложений</p>
+    <p>Универсальный прокси для любых приложений (Dante)</p>
 </div>
 
 <div class="section">
@@ -16,8 +16,7 @@
         </div>
         <div class="proxy-details">
             <div><span>Порт:</span> <strong>{{ settings.socks5_port }}</strong></div>
-            <div><span>Логин:</span> <strong>{{ settings.socks5_user }}</strong></div>
-            <div><span>Пароль:</span> <strong>••••••••</strong></div>
+            <div><span>IP:</span> <strong>{{ settings.proxy_ip }}</strong></div>
         </div>
         <div class="proxy-link-box">
             <code>socks5://{{ settings.socks5_user }}:{{ settings.socks5_pass }}@{{ settings.proxy_ip }}:{{ settings.socks5_port }}</code>
@@ -25,9 +24,42 @@
         </div>
     </div>
     {% else %}
-    <p style="color: var(--text-secondary);">SOCKS5 прокси не установлен. Установите при переустановке.</p>
+    <p style="color: var(--text-secondary);">SOCKS5 прокси не установлен. Добавьте при переустановке.</p>
     {% endif %}
 </div>
+
+{% if settings.socks5_enabled %}
+<div class="section">
+    <h3>👥 Пользователи SOCKS5</h3>
+    <form id="add-socks-user-form" class="form-inline" style="margin-bottom:16px;">
+        <input type="text" name="user" placeholder="Логин" required class="input">
+        <input type="text" name="pass" placeholder="Пароль" required class="input">
+        <button type="submit" class="btn btn-primary">➕ Добавить</button>
+    </form>
+    <div id="socks-result" class="result-box" style="display:none;"></div>
+
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Логин</th>
+                    <th>Пароль</th>
+                    <th>Подключение</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody id="socks-users-body">
+                <tr>
+                    <td>{{ settings.socks5_user }}</td>
+                    <td><code>{{ settings.socks5_pass }}</code></td>
+                    <td><code>socks5://{{ settings.socks5_user }}:{{ settings.socks5_pass }}@{{ settings.proxy_ip }}:{{ settings.socks5_port }}</code></td>
+                    <td><span class="badge badge-warning">Основной</span></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
 
 <div class="section">
     <h3>📱 Как использовать</h3>
@@ -46,32 +78,36 @@
         </div>
         <div class="tip-item">
             <span class="tip-icon">🔧</span>
-            <span><strong>cURL:</strong> <code>curl -x socks5://{{ settings.socks5_user }}:PASSWORD@{{ settings.proxy_ip }}:{{ settings.socks5_port }} https://ifconfig.me</code></span>
+            <span><strong>cURL:</strong> <code>curl -x socks5://USER:PASS@{{ settings.proxy_ip }}:{{ settings.socks5_port }} https://ifconfig.me</code></span>
         </div>
     </div>
 </div>
+{% endblock %}
 
-{% if settings.socks5_enabled %}
-<div class="section">
-    <h3>👥 Пользователи SOCKS5</h3>
-    <div class="table-container">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Логин</th>
-                    <th>Пароль</th>
-                    <th>Подключение</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>{{ settings.socks5_user }}</td>
-                    <td><code>{{ settings.socks5_pass }}</code></td>
-                    <td><code>socks5://{{ settings.socks5_user }}:{{ settings.socks5_pass }}@{{ settings.proxy_ip }}:{{ settings.socks5_port }}</code></td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-</div>
-{% endif %}
+{% block scripts %}
+<script>
+const socksForm = document.getElementById('add-socks-user-form');
+if (socksForm) {
+    socksForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const form = e.target;
+        const formData = new FormData(form);
+        const result = document.getElementById('socks-result');
+        try {
+            const res = await fetch('/api/socks5/add-user', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.status === 'ok') {
+                result.style.display = 'block';
+                result.className = 'result-box success';
+                result.textContent = '✅ Пользователь добавлен. Перезапустите SOCKS5 контейнер.';
+                form.reset();
+            }
+        } catch (err) {
+            result.style.display = 'block';
+            result.className = 'result-box error';
+            result.textContent = '❌ Ошибка: ' + err.message;
+        }
+    });
+}
+</script>
 {% endblock %}

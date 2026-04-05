@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Бэкап и восстановление - MTProtoSERVER{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>💾 Бэкап и восстановление</h2>
+    <p>Резервное копирование и восстановление конфигурации</p>
+</div>
+
+<div class="section">
+    <h3>📦 Создать бэкап</h3>
+    <p style="color:var(--text-secondary);margin-bottom:16px;">Бэкап включает: конфиги, пользователей, прокси, настройки</p>
+    <button class="btn btn-primary" onclick="createBackup()">📦 Создать бэкап</button>
+    <div id="backup-result" class="result-box" style="display:none;"></div>
+</div>
+
+<div class="section">
+    <h3>📂 Существующие бэкапы</h3>
+    <div id="backups-list">
+        <p style="color:var(--text-secondary);">Загрузка...</p>
+    </div>
+</div>
+
+<div class="section">
+    <h3>🔧 Диагностика системы</h3>
+    <button class="btn" onclick="runHealthCheck()">🔍 Запустить проверку</button>
+    <div id="health-result" class="result-box" style="display:none;"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function createBackup() {
+    const result = document.getElementById('backup-result');
+    result.style.display = 'block';
+    result.className = 'result-box';
+    result.textContent = 'Создание бэкапа...';
+    try {
+        const res = await fetch('/api/system/backup', { method: 'POST' });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            result.className = 'result-box success';
+            result.innerHTML = `✅ Бэкап создан: <strong>${data.filename}</strong> (${data.size})`;
+            loadBackups();
+        } else {
+            result.className = 'result-box error';
+            result.textContent = '❌ Ошибка: ' + (data.message || 'Неизвестная');
+        }
+    } catch (err) {
+        result.className = 'result-box error';
+        result.textContent = '❌ Ошибка: ' + err.message;
+    }
+}
+
+async function loadBackups() {
+    const list = document.getElementById('backups-list');
+    try {
+        const res = await fetch('/api/system/backups');
+        const data = await res.json();
+        if (data.backups && data.backups.length > 0) {
+            list.innerHTML = '<div class="file-list">' + data.backups.map(b =>
+                `<div class="file-item">
+                    <span>📄 ${b.name}</span>
+                    <span>${b.size}</span>
+                    <button class="btn btn-sm" onclick="restoreBackup('${b.name}')">🔄 Восстановить</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteBackup('${b.name}')">🗑️</button>
+                </div>`
+            ).join('') + '</div>';
+        } else {
+            list.innerHTML = '<p style="color:var(--text-secondary);">Нет бэкапов</p>';
+        }
+    } catch (err) {
+        list.innerHTML = '<p style="color:var(--text-secondary);">Ошибка загрузки</p>';
+    }
+}
+
+async function restoreBackup(name) {
+    if (!confirm('Восстановить из бэкапа ' + name + '? Текущие данные будут заменены.')) return;
+    try {
+        const fd = new FormData();
+        fd.append('name', name);
+        const res = await fetch('/api/system/restore', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            alert('✅ Бэкап восстановлен! Перезапустите контейнеры.');
+        } else {
+            alert('❌ Ошибка: ' + (data.message || 'Неизвестная'));
+        }
+    } catch (err) {
+        alert('❌ Ошибка: ' + err.message);
+    }
+}
+
+async function deleteBackup(name) {
+    if (!confirm('Удалить бэкап ' + name + '?')) return;
+    const fd = new FormData();
+    fd.append('name', name);
+    await fetch('/api/system/delete-backup', { method: 'POST', body: fd });
+    loadBackups();
+}
+
+async function runHealthCheck() {
+    const result = document.getElementById('health-result');
+    result.style.display = 'block';
+    result.textContent = 'Проверка...';
+    try {
+        const res = await fetch('/api/system/health');
+        const data = await res.json();
+        result.className = 'result-box success';
+        result.innerHTML = '<pre style="margin:0;white-space:pre-wrap;">' + (data.output || 'Нет данных') + '</pre>';
+    } catch (err) {
+        result.className = 'result-box error';
+        result.textContent = '❌ Ошибка: ' + err.message;
+    }
+}
+
+loadBackups();
+</script>
+{% endblock %}
