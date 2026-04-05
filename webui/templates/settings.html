@@ -74,6 +74,47 @@
 </div>
 
 <div class="section">
+    <h3>🌐 HTTP/HTTPS прокси</h3>
+    <div class="settings-grid">
+        <div class="setting-item">
+            <label>Статус</label>
+            <input type="text" value="{% if settings.http_proxy_enabled %}✅ Включён{% else %}❌ Отключён{% endif %}" class="input" readonly>
+        </div>
+        {% if settings.http_proxy_enabled %}
+        <div class="setting-item">
+            <label>Порт</label>
+            <input type="text" value="{{ settings.http_proxy_port }}" class="input" readonly>
+        </div>
+        <div class="setting-item">
+            <label>Логин</label>
+            <input type="text" value="{{ settings.http_proxy_user }}" class="input" readonly>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="section">
+    <h3>🔔 Уведомления (Webhook)</h3>
+    <div class="settings-grid">
+        <div class="setting-item">
+            <label>Webhook URL</label>
+            <input type="text" value="{{ settings.webhook_url or 'Не задан' }}" class="input" readonly>
+        </div>
+    </div>
+    <form id="webhook-form" class="form-inline" style="margin-top:16px;">
+        <input type="text" name="webhook_url" placeholder="https://discord.com/api/webhooks/..." class="input" style="flex:1;">
+        <button type="submit" class="btn btn-primary">🔔 Тест webhook</button>
+    </form>
+    <div id="webhook-result" class="result-box" style="display:none;"></div>
+</div>
+
+<div class="section">
+    <h3>🚀 Speedtest</h3>
+    <button class="btn btn-primary" onclick="runSpeedtest()">🚀 Запустить тест скорости</button>
+    <div id="speedtest-result" class="result-box" style="display:none;"></div>
+</div>
+
+<div class="section">
     <h3>🌍 GeoIP блокировка</h3>
     <div class="settings-grid">
         <div class="setting-item">
@@ -211,5 +252,59 @@ document.getElementById('domain-form').addEventListener('submit', async (e) => {
         result.textContent = '❌ Ошибка: ' + err.message;
     }
 });
+
+document.getElementById('webhook-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    const result = document.getElementById('webhook-result');
+    result.style.display = 'block';
+    result.textContent = 'Отправка тестового уведомления...';
+    try {
+        const res = await fetch('/api/system/test-webhook', { method: 'POST', body: formData });
+        const data = await res.json();
+        result.className = 'result-box success';
+        result.textContent = '✅ Webhook работает! Код ответа: ' + data.response_code;
+    } catch (err) {
+        result.className = 'result-box error';
+        result.textContent = '❌ Ошибка: ' + err.message;
+    }
+});
+
+async function runSpeedtest() {
+    const result = document.getElementById('speedtest-result');
+    result.style.display = 'block';
+    result.className = 'result-box';
+    result.textContent = 'Запуск теста скорости... (может занять до 30 секунд)';
+    try {
+        const res = await fetch('/api/system/speedtest');
+        const data = await res.json();
+        if (data.status === 'ok') {
+            result.className = 'result-box success';
+            result.innerHTML = `
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;text-align:center;">
+                    <div>
+                        <div style="font-size:24px;font-weight:700;color:var(--accent);">${data.download_mbps}</div>
+                        <div style="color:var(--text-secondary);">⬇️ Download (Mbps)</div>
+                    </div>
+                    <div>
+                        <div style="font-size:24px;font-weight:700;color:var(--success);">${data.upload_mbps}</div>
+                        <div style="color:var(--text-secondary);">⬆️ Upload (Mbps)</div>
+                    </div>
+                    <div>
+                        <div style="font-size:24px;font-weight:700;color:var(--warning);">${data.ping_ms}</div>
+                        <div style="color:var(--text-secondary);">📡 Ping (ms)</div>
+                    </div>
+                </div>
+            `;
+        } else {
+            result.className = 'result-box error';
+            result.textContent = '❌ Ошибка: ' + (data.message || 'Неизвестная');
+        }
+    } catch (err) {
+        result.className = 'result-box error';
+        result.textContent = '❌ Ошибка: ' + err.message;
+    }
+}
 </script>
 {% endblock %}

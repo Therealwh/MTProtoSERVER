@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}HTTP/HTTPS прокси - MTProtoSERVER{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>🌐 HTTP/HTTPS прокси</h2>
+    <p>Прокси для браузера, приложений, парсинга (Squid)</p>
+</div>
+
+<div class="section">
+    <h3>📊 Статус HTTP/HTTPS прокси</h3>
+    {% if settings.http_proxy_enabled %}
+    <div class="proxy-card proxy-active" style="max-width:600px;">
+        <div class="proxy-header">
+            <h4>HTTP/HTTPS Squid</h4>
+            <span class="badge badge-success">Работает</span>
+        </div>
+        <div class="proxy-details">
+            <div><span>Порт:</span> <strong>{{ settings.http_proxy_port }}</strong></div>
+            <div><span>Логин:</span> <strong>{{ settings.http_proxy_user }}</strong></div>
+            <div><span>Тип:</span> <strong>HTTP + HTTPS</strong></div>
+        </div>
+        <div class="proxy-link-box">
+            <code>http://{{ settings.http_proxy_user }}:{{ settings.http_proxy_pass }}@{{ settings.proxy_ip }}:{{ settings.http_proxy_port }}</code>
+            <button class="btn btn-sm" onclick="navigator.clipboard.writeText('http://{{ settings.http_proxy_user }}:{{ settings.http_proxy_pass }}@{{ settings.proxy_ip }}:{{ settings.http_proxy_port }}'); showToast('Скопировано!')">📋</button>
+        </div>
+    </div>
+    {% else %}
+    <p style="color: var(--text-secondary);">HTTP/HTTPS прокси не установлен. Добавьте при переустановке.</p>
+    {% endif %}
+</div>
+
+{% if settings.http_proxy_enabled %}
+<div class="section">
+    <h3>📱 Как использовать</h3>
+    <div class="tips-list">
+        <div class="tip-item">
+            <span class="tip-icon">🌐</span>
+            <span><strong>Браузер:</strong> Настройки → Прокси → HTTP → IP:{{ settings.http_proxy_port }}, логин: {{ settings.http_proxy_user }}</span>
+        </div>
+        <div class="tip-item">
+            <span class="tip-icon">🔧</span>
+            <span><strong>cURL:</strong> <code>curl -x http://{{ settings.http_proxy_user }}:PASSWORD@{{ settings.proxy_ip }}:{{ settings.http_proxy_port }} https://ifconfig.me</code></span>
+        </div>
+        <div class="tip-item">
+            <span class="tip-icon">🐍</span>
+            <span><strong>Python:</strong> <code>requests.get(url, proxies={'http': 'http://USER:PASS@IP:PORT'})</code></span>
+        </div>
+        <div class="tip-item">
+            <span class="tip-icon">📱</span>
+            <span><strong>Telegram:</strong> Не поддерживается (используйте SOCKS5 или MTProto)</span>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="section">
+    <h3>💡 Отличия от SOCKS5</h3>
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>HTTP/HTTPS</th>
+                    <th>SOCKS5</th>
+                    <th>MTProto</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Telegram</strong></td>
+                    <td>❌ Нет</td>
+                    <td>✅ Да</td>
+                    <td>✅ Да</td>
+                </tr>
+                <tr>
+                    <td><strong>Браузер</strong></td>
+                    <td>✅ Да</td>
+                    <td>✅ Да</td>
+                    <td>❌ Нет</td>
+                </tr>
+                <tr>
+                    <td><strong>Любой TCP</strong></td>
+                    <td>❌ Только HTTP</td>
+                    <td>✅ Да</td>
+                    <td>❌ Только Telegram</td>
+                </tr>
+                <tr>
+                    <td><strong>Кэширование</strong></td>
+                    <td>✅ Да</td>
+                    <td>❌ Нет</td>
+                    <td>❌ Нет</td>
+                </tr>
+                <tr>
+                    <td><strong>Обход блокировок</strong></td>
+                    <td>⚠️ Частично</td>
+                    <td>⚠️ Частично</td>
+                    <td>✅ Полное (FakeTLS)</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

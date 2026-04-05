@@ -39,6 +39,10 @@ E_PHONE="📱"
 E_SOCKS="🧦"
 E_MONEY="💰"
 E_GLOBE="🌍"
+E_HTTP="🌐"
+E_FIRE="🔥"
+E_SPEED="🚀"
+E_NOTIFY="🔔"
 
 # Переменные
 INSTALL_DIR="/opt/mtprotoserver"
@@ -59,8 +63,13 @@ SOCKS5_ENABLED="no"
 SOCKS5_PORT=1080
 SOCKS5_USER=""
 SOCKS5_PASS=""
+HTTP_PROXY_ENABLED="no"
+HTTP_PROXY_PORT=3128
+HTTP_PROXY_USER=""
+HTTP_PROXY_PASS=""
 AD_TAG=""
 GEOBLOCK_COUNTRIES=""
+WEBHOOK_URL=""
 
 # ============================================================
 # Утилиты
@@ -77,7 +86,7 @@ print_header() {
     clear
     print_sep
     echo -e "${WHITE}${E_STAR}  MTProtoSERVER — Установщик MTProto Прокси${NC}"
-    echo -e "${CYAN}   Версия 1.1.0 | 2026 | Multi-Proxy + FakeTLS + Web UI + Bot${NC}"
+    echo -e "${CYAN}   Версия 1.3.0 | 2026 | Multi-Proxy + SOCKS5 + HTTP + FakeTLS + Web UI + Bot${NC}"
     print_sep
     echo ""
 }
@@ -527,11 +536,80 @@ step_geoblock_config() {
 }
 
 # ============================================================
-# ШАГ 8: Скачивание файлов с GitHub
+# ШАГ 8: HTTP/HTTPS прокси (Squid)
+# ============================================================
+
+step_http_proxy_config() {
+    print_step "8" "Настройка HTTP/HTTPS прокси (Squid)"
+
+    echo -e "${CYAN}${E_HTTP}  HTTP/HTTPS прокси — для браузера, приложений, парсинга${NC}"
+    echo -e "   Работает на базе Squid — самый популярный HTTP прокси"
+    echo -e "   Поддерживает аутентификацию, кэширование, ACL"
+    echo ""
+
+    read -p "Установить HTTP/HTTPS прокси? [y/n] (по умолчанию n): " http_choice
+    http_choice=${http_choice:-n}
+
+    if [[ "$http_choice" =~ ^[Yy]$ ]]; then
+        HTTP_PROXY_ENABLED="yes"
+
+        read -p "Порт HTTP прокси [3128]: " http_port
+        HTTP_PROXY_PORT=${http_port:-3128}
+        log_ok "Порт HTTP прокси: $HTTP_PROXY_PORT"
+        echo ""
+
+        read -p "Логин для HTTP прокси: " HTTP_PROXY_USER
+        HTTP_PROXY_USER=${HTTP_PROXY_USER:-"proxyuser"}
+        log_ok "Логин: $HTTP_PROXY_USER"
+
+        read -p "Пароль для HTTP прокси: " HTTP_PROXY_PASS
+        HTTP_PROXY_PASS=${HTTP_PROXY_PASS:-$(openssl rand -hex 8)}
+        log_ok "Пароль: $HTTP_PROXY_PASS"
+    else
+        log_info "HTTP/HTTPS прокси не будет установлен"
+    fi
+
+    read -p "Нажмите Enter для продолжения..."
+}
+
+# ============================================================
+# ШАГ 9: Уведомления (Webhook)
+# ============================================================
+
+step_notification_config() {
+    print_step "9" "Настройка уведомлений (Webhook)"
+
+    echo -e "${CYAN}${E_NOTIFY}  Уведомления — получайте алерты о событиях${NC}"
+    echo -e "   Отправка уведомлений при падении прокси, превышении нагрузки и т.д."
+    echo -e "   Поддержка: Telegram Webhook, Discord, Slack, любой webhook URL"
+    echo ""
+
+    read -p "Настроить уведомления? [y/n] (по умолчанию n): " notify_choice
+    notify_choice=${notify_choice:-n}
+
+    if [[ "$notify_choice" =~ ^[Yy]$ ]]; then
+        echo -e "${WHITE}Поддерживаемые webhook:${NC}"
+        echo -e "  • Discord: https://discord.com/api/webhooks/..."
+        echo -e "  • Slack: https://hooks.slack.com/services/..."
+        echo -e "  • Любой HTTP endpoint"
+        echo ""
+        read -p "Webhook URL: " WEBHOOK_URL
+        if [ -n "$WEBHOOK_URL" ]; then
+            log_ok "Webhook URL установлен"
+        fi
+    else
+        log_info "Уведомления не будут настроены"
+    fi
+
+    read -p "Нажмите Enter для продолжения..."
+}
+
+# ============================================================
+# ШАГ 10: Скачивание файлов с GitHub
 # ============================================================
 
 step_download_files() {
-    print_step "8" "Скачивание файлов проекта"
+    print_step "10" "Скачивание файлов проекта"
 
     log_info "Скачивание файлов с GitHub..."
 
@@ -679,6 +757,24 @@ WEBUI_EOF
       - mtproto-net
 
 SOCKS_EOF
+    fi
+
+    # HTTP/HTTPS (Squid)
+    if [[ "$HTTP_PROXY_ENABLED" == "yes" ]]; then
+        cat >> "$INSTALL_DIR/docker-compose.yml" << HTTP_EOF
+  http-proxy:
+    image: sameersbn/squid:latest
+    container_name: mtproto-http-proxy
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PROXY_PORT}:3128"
+    volumes:
+      - ./config/squid.conf:/etc/squid/squid.conf:ro
+      - ./data/squid-cache:/var/spool/squid
+    networks:
+      - mtproto-net
+
+HTTP_EOF
     fi
 
     # Bot
@@ -842,8 +938,13 @@ USERS_EOF
     "socks5_port": ${SOCKS5_PORT},
     "socks5_user": "${SOCKS5_USER}",
     "socks5_pass": "${SOCKS5_PASS}",
+    "http_proxy_enabled": ${HTTP_PROXY_ENABLED},
+    "http_proxy_port": ${HTTP_PROXY_PORT},
+    "http_proxy_user": "${HTTP_PROXY_USER}",
+    "http_proxy_pass": "${HTTP_PROXY_PASS}",
     "ad_tag": "${AD_TAG}",
     "geoblock_countries": "${GEOBLOCK_COUNTRIES}",
+    "webhook_url": "${WEBHOOK_URL}",
     "auto_heal": true,
     "auto_update": true,
     "backup_enabled": true,
@@ -905,6 +1006,35 @@ socks pass {
 }
 SOCKS_CONF
         log_ok "SOCKS5 конфиг создан"
+    fi
+
+    # HTTP Proxy (Squid) конфиг
+    if [[ "$HTTP_PROXY_ENABLED" == "yes" ]]; then
+        cat > "$INSTALL_DIR/config/squid.conf" << SQUID_CONF
+auth_param basic program /usr/lib/squid/basic_ncsa_auth /etc/squid/passwd
+auth_param basic children 5
+auth_param basic realm Squid Basic Authentication
+auth_param basic credentialsttl 2 hours
+
+acl auth_users proxy_auth REQUIRED
+http_access allow auth_users
+http_access deny all
+
+http_port 3128
+cache_dir ufs /var/spool/squid 100 16 256
+coredump_dir /var/spool/squid
+refresh_pattern ^ftp:           1440    20%     10080
+refresh_pattern ^gopher:        1440    0%      1440
+refresh_pattern -i (/cgi-bin/|\?) 0     0%      0
+refresh_pattern .               0       20%     4320
+SQUID_CONF
+
+        # Create password file
+        local htpasswd_line="${HTTP_PROXY_USER}:$(openssl passwd -apr1 "${HTTP_PROXY_PASS}")"
+        mkdir -p "$INSTALL_DIR/data"
+        echo "$htpasswd_line" > "$INSTALL_DIR/config/squid.passwd"
+
+        log_ok "HTTP/HTTPS прокси конфиг создан"
     fi
 
     read -p "Нажмите Enter для продолжения..."
@@ -1112,9 +1242,22 @@ step_summary() {
         echo ""
     fi
 
+    if [[ "$HTTP_PROXY_ENABLED" == "yes" ]]; then
+        echo -e "${WHITE}${E_HTTP}  HTTP/HTTPS прокси:${NC}"
+        echo -e "   Порт: ${HTTP_PROXY_PORT} | Логин: ${HTTP_PROXY_USER} | Пароль: ${HTTP_PROXY_PASS}"
+        echo -e "   ${CYAN}http://${HTTP_PROXY_USER}:${HTTP_PROXY_PASS}@${SERVER_IP}:${HTTP_PROXY_PORT}${NC}"
+        echo ""
+    fi
+
     if [[ -n "$AD_TAG" ]]; then
         echo -e "${WHITE}${E_MONEY}  Ad-Tag монетизация:${NC}"
         echo -e "   Установлен: ${AD_TAG:0:8}..."
+        echo ""
+    fi
+
+    if [[ -n "$WEBHOOK_URL" ]]; then
+        echo -e "${WHITE}${E_NOTIFY}  Уведомления:${NC}"
+        echo -e "   Webhook: ${WEBHOOK_URL:0:30}..."
         echo ""
     fi
 
@@ -1161,8 +1304,10 @@ main() {
     echo -e "  ${E_SHIELD} FakeTLS маскировкой (обход блокировок)"
     echo -e "  ${E_NET} Несколькими прокси (разные порты/домены)"
     echo -e "  ${E_SOCKS} SOCKS5 прокси (опционально)"
+    echo -e "  ${E_HTTP} HTTP/HTTPS прокси (опционально)"
     echo -e "  ${E_MONEY} Ad-Tag монетизацией (опционально)"
     echo -e "  ${E_GLOBE} GeoIP блокировкой стран (опционально)"
+    echo -e "  ${E_NOTIFY} Уведомлениями через webhook (опционально)"
     echo -e "  ${E_NET} Web панелью управления"
     echo -e "  ${E_BOT} Telegram ботом (опционально)"
     echo -e "  ${E_CHART} Статистикой и мониторингом"
@@ -1181,8 +1326,10 @@ main() {
     step_proxy_config
     step_bot_config
     step_socks5_config
+    step_http_proxy_config
     step_adtag_config
     step_geoblock_config
+    step_notification_config
     step_download_files
     step_create_config
     step_copy_files

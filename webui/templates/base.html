@@ -30,6 +30,10 @@
                 <span class="nav-icon">🧦</span>
                 <span>SOCKS5</span>
             </a>
+            <a href="/http-proxy" class="nav-link {% if request.url.path == '/http-proxy' %}active{% endif %}">
+                <span class="nav-icon">🌐</span>
+                <span>HTTP/HTTPS</span>
+            </a>
             <a href="/stats" class="nav-link {% if request.url.path == '/stats' %}active{% endif %}">
                 <span class="nav-icon">📈</span>
                 <span>Статистика</span>

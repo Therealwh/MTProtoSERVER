@@ -155,6 +155,14 @@ async def socks5_page(request: Request):
         "settings": settings
     })
 
+@app.get("/http-proxy", response_class=HTMLResponse)
+async def http_proxy_page(request: Request):
+    settings = get_settings()
+    return templates.TemplateResponse("http_proxy.html", {
+        "request": request,
+        "settings": settings
+    })
+
 @app.get("/stats", response_class=HTMLResponse)
 async def stats_page(request: Request):
     users_data = get_users()
@@ -519,14 +527,12 @@ async def delete_backup(request: Request):
 @app.get("/api/system/health")
 async def health_check():
     checks = []
-    # Docker
     try:
         r = subprocess.run(['docker', 'info'], capture_output=True, timeout=5)
         checks.append(f"{'✅' if r.returncode == 0 else '❌'} Docker: {'работает' if r.returncode == 0 else 'не работает'}")
     except:
         checks.append("❌ Docker: не доступен")
 
-    # Containers
     try:
         r = subprocess.run(['docker', 'ps', '--format', '{{.Names}} {{.Status}}'],
                           capture_output=True, text=True, timeout=5)
@@ -539,17 +545,74 @@ async def health_check():
     except:
         checks.append("❌ Не удалось проверить контейнеры")
 
-    # Disk
     disk = psutil.disk_usage('/')
     checks.append(f"{'✅' if disk.percent < 90 else '⚠️'} Диск: {disk.percent}% использовано")
 
-    # RAM
     mem = psutil.virtual_memory()
     checks.append(f"{'✅' if mem.percent < 90 else '⚠️'} RAM: {mem.percent}% использовано")
 
-    # Config files
     for f in ['config/settings.json', 'data/users.json', 'data/proxies.json']:
         path = os.path.join('/opt/mtprotoserver', f)
         checks.append(f"{'✅' if os.path.exists(path) else '❌'} {f}")
 
     return JSONResponse({'status': 'ok', 'output': '\n'.join(checks)})
+
+@app.get("/api/system/speedtest")
+async def speed_test():
+    try:
+        import time
+        # Download test
+        start = time.time()
+        r = subprocess.run(['curl', '-s', '-o', '/dev/null', '-w', '%{speed_download}',
+                           'https://speed.cloudflare.com/__down?bytes=5000000'],
+                          capture_output=True, text=True, timeout=30)
+        download_speed = float(r.stdout) * 8 / 1000000 if r.stdout else 0
+        download_time = time.time() - start
+
+        # Upload test
+        start = time.time()
+        r2 = subprocess.run(['curl', '-s', '-o', '/dev/null', '-w', '%{speed_upload}',
+                            '-X', 'POST', '-d', 'x' * 1000000,
+                            'https://speed.cloudflare.com/__up'],
+                           capture_output=True, text=True, timeout=30)
+        upload_speed = float(r2.stdout) * 8 / 1000000 if r2.stdout else 0
+        upload_time = time.time() - start
+
+        # Ping
+        r3 = subprocess.run(['ping', '-c', '4', '-W', '2', '1.1.1.1'],
+                           capture_output=True, text=True, timeout=10)
+        ping = 'N/A'
+        if r3.stdout:
+            lines = r3.stdout.strip().split('\n')
+            for line in lines:
+                if 'avg' in line or 'rtt' in line:
+                    ping = line.split('/')[4] if '/' in line else 'N/A'
+                    break
+
+        return JSONResponse({
+            'status': 'ok',
+            'download_mbps': round(download_speed, 2),
+            'upload_mbps': round(upload_speed, 2),
+            'ping_ms': ping,
+            'download_time': round(download_time, 2),
+            'upload_time': round(upload_time, 2)
+        })
+    except Exception as e:
+        return JSONResponse({'status': 'error', 'message': str(e)}, status_code=500)
+
+@app.post("/api/system/test-webhook")
+async def test_webhook(request: Request):
+    import requests as req
+    form = await request.form()
+    url = form.get('webhook_url', '')
+    if not url:
+        return JSONResponse({'status': 'error', 'message': 'URL обязателен'}, status_code=400)
+    try:
+        payload = {
+            'text': '🟢 MTProtoSERVER: Тестовое уведомление работает!',
+            'content': 'Это тестовое сообщение от MTProtoSERVER'
+        }
+        r = req.post(url, json=payload, timeout=10)
+        return JSONResponse({'status': 'ok', 'response_code': r.status_code})
+    except Exception as e:
+        return JSONResponse({'status': 'error', 'message': str(e)}, status_code=500)
