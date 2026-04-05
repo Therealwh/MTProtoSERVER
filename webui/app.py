@@ -729,36 +729,41 @@ async def update_mtproto(label: str, request: Request):
 # =================== PUBLIC API (no auth required) ===================
 
 def get_all_mtproto():
-    """Get MTProto proxies from proxies.json with live connection counts"""
+    """Get MTProto proxies from proxies.json with live connection counts via Docker API"""
     s = get_settings()
     ip = s.get('proxy_ip', '0.0.0.0')
     proxies = []
     pd = load_json(os.path.join(DATA_DIR, 'proxies.json'))
-    # Read /proc/net/tcp from host (mounted at /host_proc_net_tcp)
-    connections = {}  # port -> set of remote IPs
-    try:
-        with open('/host_proc_net_tcp', 'r') as f:
-            for line in f:
-                parts = line.strip().split()
-                if len(parts) >= 4 and parts[3] == '01':  # ESTABLISHED
-                    local = parts[1].split(':')
-                    remote = parts[2].split(':')
-                    if len(local) >= 2 and len(remote) >= 2:
-                        port = int(local[1], 16)
-                        # Convert hex IP to dotted decimal (little-endian)
-                        rip_hex = remote[0]
-                        if len(rip_hex) == 8:
-                            rip = '.'.join([str(int(rip_hex[i:i+2], 16)) for i in (6,4,2,0)])
-                            if rip != '127.0.0.1' and rip != '0.0.0.0':
-                                if port not in connections:
-                                    connections[port] = set()
-                                connections[port].add(rip)
-    except: pass
     for p in pd.get('proxies', []):
         if p.get('enabled', True):
             port = p.get('port', 0)
             label = p.get('label', '')
-            unique_ips = len(connections.get(port, set()))
+            unique_ips = 0
+            # Get container PID via Docker API
+            container_name = f'mtproto-proxy-{label}'
+            try:
+                r = subprocess.run(['docker', 'inspect', '-f', '{{.State.Pid}}', container_name],
+                                  capture_output=True, text=True, timeout=5)
+                if r.returncode == 0 and r.stdout.strip():
+                    pid = r.stdout.strip()
+                    # Read /proc/<PID>/net/tcp from mounted host /proc
+                    tcp_file = f'/host_proc/{pid}/net/tcp'
+                    if os.path.exists(tcp_file):
+                        with open(tcp_file, 'r') as f:
+                            hex_port = format(port, 'X').upper().zfill(4)
+                            ips = set()
+                            for line in f:
+                                parts = line.strip().split()
+                                if len(parts) >= 4 and parts[3] == '01':  # ESTABLISHED
+                                    local = parts[1].split(':')
+                                    if len(local) >= 2 and local[1].upper() == hex_port:
+                                        rip_hex = parts[2].split(':')[0]
+                                        if len(rip_hex) == 8:
+                                            rip = '.'.join([str(int(rip_hex[i:i+2], 16)) for i in (6,4,2,0)])
+                                            if rip != '127.0.0.1' and rip != '0.0.0.0':
+                                                ips.add(rip)
+                        unique_ips = len(ips)
+            except: pass
             proxies.append({
                 'label': label,
                 'port': port,

@@ -784,7 +784,7 @@ PROXY_EOF
       - ./backups:/app/backups
       - /var/run/docker.sock:/var/run/docker.sock
       - /opt/mtprotoserver:/opt/mtprotoserver
-      - /proc/net/tcp:/host_proc_net_tcp:ro
+      - /proc:/host_proc:ro
     environment:
       - PROXY_IP=${SERVER_IP}
       - PROXY_COUNT=${PROXY_COUNT}
