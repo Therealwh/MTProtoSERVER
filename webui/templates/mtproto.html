@@ -20,13 +20,48 @@
         </div>
         <div class="setting-item">
             <label>Домен маскировки (FakeTLS)</label>
-            <input type="text" value="{{ settings.fake_domain }}" class="input" readonly>
+            <input type="text" value="{{ settings.fake_domain }}" class="input" readonly id="current-domain-display">
         </div>
         <div class="setting-item">
             <label>Количество прокси</label>
             <input type="text" value="{{ settings.proxy_count }}" class="input" readonly>
         </div>
     </div>
+</div>
+
+<div class="section">
+    <h3>➕ Создать новый MTProto прокси</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Создайте дополнительный MTProto прокси на другом порту с другим доменом маскировки. Каждый прокси работает в отдельном Docker контейнере.</p>
+    <form id="create-mtproto-form" class="form-grid">
+        <div class="form-group">
+            <label>Название прокси</label>
+            <input type="text" name="label" placeholder="например: proxy2" required class="input">
+        </div>
+        <div class="form-group">
+            <label>Порт</label>
+            <input type="number" name="port" placeholder="444" required class="input">
+        </div>
+        <div class="form-group">
+            <label>Домен маскировки</label>
+            <select name="domain" class="input">
+                <option value="cloudflare.com">cloudflare.com</option>
+                <option value="1c.ru">1c.ru</option>
+                <option value="sberbank.ru">sberbank.ru</option>
+                <option value="yandex.ru">yandex.ru</option>
+                <option value="mail.ru">mail.ru</option>
+                <option value="vk.com">vk.com</option>
+                <option value="gosuslugi.ru">gosuslugi.ru</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Секрет (пусто = автогенерация)</label>
+            <input type="text" name="secret" placeholder="Авто" class="input">
+        </div>
+        <div class="form-group" style="display:flex;align-items:flex-end;">
+            <button type="submit" class="btn btn-primary">➕ Создать прокси</button>
+        </div>
+    </form>
+    <div id="create-mtproto-result" class="result-box" style="display:none;"></div>
 </div>
 
 <div class="section">
@@ -40,7 +75,7 @@
 
 <div class="section">
     <h3>🔄 Сменить домен маскировки</h3>
-    <p style="color:var(--text-secondary);margin-bottom:12px;">Если текущий домен заблокирован или вы хотите сменить маскировку. При смене домена автоматически генерируется новый секрет.</p>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Если текущий домен заблокирован или вы хотите сменить маскировку. При смене домена автоматически генерируется новый секрет и обновляются все настройки.</p>
     <form id="domain-form" class="form-inline">
         <select name="domain" class="input">
             <option value="cloudflare.com">cloudflare.com (рекомендуется)</option>
@@ -68,14 +103,10 @@
 
 <div class="section">
     <h3>📋 Ссылки для подключения</h3>
-    <p style="color:var(--text-secondary);margin-bottom:12px;">Скопируйте эти ссылки и отправьте пользователям. Они откроют их в Telegram и подключатся к прокси.</p>
-    {% if server_ip and settings.proxy_port %}
-    <div class="proxy-link-box" style="margin-bottom:8px;">
-        <code id="mtproto-link">tg://proxy?server={{ server_ip }}&port={{ settings.proxy_port }}&secret=СЕКРЕТ_КЛИЕНТА</code>
-        <button class="btn btn-sm" onclick="copyText(document.getElementById('mtproto-link').textContent)">📋</button>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Ссылки всех активных клиентов MTProto. Нажмите 📋 чтобы скопировать ссылку.</p>
+    <div id="client-links">
+        <p style="color:var(--text-secondary);">Загрузка...</p>
     </div>
-    {% endif %}
-    <p style="color:var(--text-secondary);font-size:13px;">⚠️ Вместо "СЕКРЕТ_КЛИЕНТА" подставьте секрет конкретного клиента со страницы "Клиенты".</p>
 </div>
 
 <div class="section">
@@ -103,19 +134,37 @@
 
 {% block scripts %}
 <script>
-async function generateSecret() {
-    const res = await fetch('/api/mtproto/generate-secret');
-    const data = await res.json();
-    const r = document.getElementById('secret-result');
-    r.style.display = 'block';
-    r.className = 'result-box success';
-    r.innerHTML = `<p>✅ Новый секрет:</p>
-        <code style="word-break:break-all;" id="new-secret">${data.secret}</code>
-        <p style="margin-top:8px;">Домен: <strong>${data.domain}</strong></p>
-        <p>Ссылка: <code id="new-link">tg://proxy?server={{ server_ip }}&port={{ settings.proxy_port }}&secret=${data.secret}</code></p>
-        <button class="btn btn-sm" onclick="copyText(document.getElementById('new-link').textContent)">📋 Копировать ссылку</button>`;
+const serverIp = '{{ server_ip }}';
+
+// Load client links on page load
+async function loadClientLinks() {
+    const container = document.getElementById('client-links');
+    try {
+        const res = await fetch('/api/public/mtproto');
+        const data = await res.json();
+        if (data.proxies && data.proxies.length > 0) {
+            let html = '';
+            data.proxies.forEach(p => {
+                html += `<div class="proxy-link-box" style="margin-bottom:8px;">
+                    <div style="flex:1;">
+                        <strong>${p.label}</strong> — порт ${p.port}, домен: ${p.domain}<br>
+                        <code style="font-size:11px;word-break:break-all;">${p.link}</code>
+                    </div>
+                    <button class="btn btn-sm" onclick="copyText('${p.link}')">📋</button>
+                </div>`;
+            });
+            container.innerHTML = html;
+        } else {
+            container.innerHTML = '<p style="color:var(--text-secondary);">Нет активных MTProto прокси. Создайте первый прокси выше.</p>';
+        }
+    } catch (e) {
+        container.innerHTML = '<p style="color:var(--danger);">Ошибка загрузки ссылок</p>';
+    }
 }
 
+loadClientLinks();
+
+// Create MTProto proxy
 document.getElementById('create-mtproto-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;
@@ -144,6 +193,22 @@ document.getElementById('create-mtproto-form').addEventListener('submit', async 
     }
 });
 
+// Generate secret
+async function generateSecret() {
+    const res = await fetch('/api/mtproto/generate-secret');
+    const data = await res.json();
+    const r = document.getElementById('secret-result');
+    r.style.display = 'block';
+    r.className = 'result-box success';
+    const link = `tg://proxy?server=${serverIp}&port={{ settings.proxy_port }}&secret=${data.secret}`;
+    r.innerHTML = `<p>✅ Новый секрет:</p>
+        <code style="word-break:break-all;" id="new-secret">${data.secret}</code>
+        <p style="margin-top:8px;">Домен: <strong>${data.domain}</strong></p>
+        <p>Ссылка: <code id="new-link">${link}</code></p>
+        <button class="btn btn-sm" onclick="copyText('${link}')">📋 Копировать ссылку</button>`;
+}
+
+// Change domain + generate new secret
 document.getElementById('domain-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;
@@ -151,16 +216,19 @@ document.getElementById('domain-form').addEventListener('submit', async (e) => {
     const result = document.getElementById('domain-result');
     result.style.display = 'block'; result.textContent = 'Смена домена и генерация секрета...';
     try {
+        // Generate new secret first
         const secRes = await fetch('/api/mtproto/generate-secret');
         const secData = await secRes.json();
+        // Change domain
         const res = await fetch('/api/system/rotate-domain', { method: 'POST', body: formData });
         const data = await res.json();
+        const newLink = `tg://proxy?server=${serverIp}&port={{ settings.proxy_port }}&secret=${secData.secret}`;
         result.style.display = 'block';
         result.className = 'result-box success';
         result.innerHTML = `<p>✅ Домен изменён на: <strong>${data.domain}</strong></p>
             <p>Новый секрет: <code>${secData.secret}</code></p>
-            <p>Ссылка: <code>tg://proxy?server={{ server_ip }}&port={{ settings.proxy_port }}&secret=${secData.secret}</code></p>
-            <button class="btn btn-sm" onclick="copyText('tg://proxy?server={{ server_ip }}&port={{ settings.proxy_port }}&secret=${secData.secret}')">📋 Копировать</button>
+            <p>Ссылка: <code>${newLink}</code></p>
+            <button class="btn btn-sm" onclick="copyText('${newLink}')">📋 Копировать</button>
             <p style="margin-top:8px;color:var(--text-secondary);">Перезагрузите страницу через 5 секунд.</p>`;
         setTimeout(() => location.reload(), 5000);
     } catch (err) {
@@ -170,6 +238,7 @@ document.getElementById('domain-form').addEventListener('submit', async (e) => {
     }
 });
 
+// Set Ad-Tag
 document.getElementById('adtag-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;
