@@ -3,7 +3,8 @@ set -euo pipefail
 
 # ============================================================
 # MTProtoSERVER — MTG Agent Installer
-# Запускается НА ХОСТЕ (не в контейнере) для прямого доступа к /proc/net/tcp
+# Запускается в контейнере с pid:host + network_mode:host
+# для прямого доступа к /proc/net/tcp и Docker API
 # ============================================================
 
 RED='\033[0;31m'
@@ -24,24 +25,38 @@ print_sep
 echo -e "${GREEN}🔧 Установка MTG Agent${NC}"
 print_sep
 echo ""
-echo -e "Агент запускается прямо на хосте (не в контейнере)"
-echo -e "Это даёт прямой доступ к /proc/net/tcp для подсчёта подключений"
-echo ""
 
-# Создаём директорию
 mkdir -p "$AGENT_DIR"
 
 # Генерируем токен
 AGENT_TOKEN=$(openssl rand -hex 16)
 echo -e "${GREEN}Токен агента: ${AGENT_TOKEN}${NC}"
-echo ""
 
-# Создаём agent.py
+# Создаём docker-compose с pid:host + network_mode:host
+cat > "$AGENT_DIR/docker-compose.yml" << EOF
+services:
+  mtg-agent:
+    image: python:3.12-alpine
+    container_name: mtg-agent
+    restart: unless-stopped
+    network_mode: host
+    pid: host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /proc:/proc:ro
+      - ./agent.py:/app/agent.py:ro
+    working_dir: /app
+    environment:
+      - AGENT_TOKEN=${AGENT_TOKEN}
+    command: >
+      sh -c "pip install -q fastapi uvicorn && python -m uvicorn agent:app --host 0.0.0.0 --port ${AGENT_PORT}"
+EOF
+
+# Создаём agent.py — читает /proc/net/tcp напрямую (host network)
 cat > "$AGENT_DIR/agent.py" << 'AGENTEOF'
 """
 MTG Agent — мониторинг MTProto прокси
-Запускается прямо на ХОСТЕ (не в контейнере)
-Имеет прямой доступ к /proc/net/tcp для подсчёта подключений
+Запускается с pid:host + network_mode:host для прямого доступа к /proc/net/tcp
 """
 from fastapi import FastAPI, Header, HTTPException
 import subprocess
@@ -60,7 +75,6 @@ def require_token(x_token: str = Header(...)):
         raise HTTPException(status_code=401, detail="Invalid token")
 
 def get_proxy_containers():
-    """Get all MTProto proxy containers"""
     try:
         r = subprocess.run(
             ['docker', 'ps', '--filter', 'name=mtproto-proxy', '--format', '{{.Names}}|{{.ID}}|{{.Status}}'],
@@ -71,25 +85,16 @@ def get_proxy_containers():
             if line:
                 parts = line.split('|')
                 if len(parts) >= 3:
-                    containers.append({
-                        'name': parts[0],
-                        'id': parts[1],
-                        'status': parts[2]
-                    })
+                    containers.append({'name': parts[0], 'id': parts[1], 'status': parts[2]})
         return containers
     except:
         return []
 
 def get_container_port(name):
-    """Get the host port for a container"""
     try:
-        r = subprocess.run(
-            ['docker', 'port', name],
-            capture_output=True, text=True, timeout=5
-        )
+        r = subprocess.run(['docker', 'port', name], capture_output=True, text=True, timeout=5)
         if r.stdout.strip():
-            port_str = r.stdout.strip().split(':')[-1]
-            return int(port_str)
+            return int(r.stdout.strip().split(':')[-1])
     except:
         pass
     return 443
@@ -100,7 +105,6 @@ def get_connections_for_port(port):
     seen_ips = set()
     total = 0
     tg_prefixes = ('149.154.', '95.161.', '91.108.')
-    
     try:
         with open('/proc/net/tcp', 'r') as f:
             for line in f:
@@ -116,20 +120,12 @@ def get_connections_for_port(port):
                                 total += 1
     except:
         pass
-    
-    return {
-        'unique_ips': len(seen_ips),
-        'connected_ips': sorted(list(seen_ips)),
-        'total_connections': total
-    }
+    return {'unique_ips': len(seen_ips), 'connected_ips': sorted(list(seen_ips)), 'total_connections': total}
 
 def get_traffic_for_container(name):
-    """Get traffic stats from container's /proc/<PID>/net/dev"""
     try:
-        r = subprocess.run(
-            ['docker', 'inspect', '-f', '{{.State.Pid}}', name],
-            capture_output=True, text=True, timeout=5
-        )
+        r = subprocess.run(['docker', 'inspect', '-f', '{{.State.Pid}}', name],
+                          capture_output=True, text=True, timeout=5)
         if r.returncode == 0 and r.stdout.strip():
             pid = r.stdout.strip()
             dev_file = f'/proc/{pid}/net/dev'
@@ -145,7 +141,6 @@ def get_traffic_for_container(name):
     return {'rx_bytes': 0, 'tx_bytes': 0}
 
 def collect_all():
-    """Collect stats from all proxy containers"""
     global CACHE, CACHE_TIME
     containers = get_proxy_containers()
     result = []
@@ -154,12 +149,8 @@ def collect_all():
         connections = get_connections_for_port(port)
         traffic = get_traffic_for_container(c['name'])
         result.append({
-            'name': c['name'],
-            'id': c['id'],
-            'status': c['status'],
-            'port': port,
-            **connections,
-            **traffic
+            'name': c['name'], 'id': c['id'], 'status': c['status'], 'port': port,
+            **connections, **traffic
         })
     CACHE = {'proxies': result}
     CACHE_TIME = time.time()
@@ -198,41 +189,13 @@ async def get_proxy_traffic(name: str, x_token: str = Header(...)):
     return get_traffic_for_container(name)
 AGENTEOF
 
-# Создаём systemd сервис
-cat > /etc/systemd/system/mtg-agent.service << EOF
-[Unit]
-Description=MTG Agent — MTProto Proxy Monitor
-After=network.target docker.service
-Requires=docker.service
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=${AGENT_DIR}
-Environment=AGENT_TOKEN=${AGENT_TOKEN}
-ExecStart=/usr/bin/python3 -m uvicorn agent:app --host 0.0.0.0 --port ${AGENT_PORT}
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# Устанавливаем зависимости
-echo -e "${YELLOW}Установка зависимостей...${NC}"
-if ! command -v pip3 &>/dev/null; then
-    apt-get update -qq && apt-get install -y -qq python3-pip
-fi
-pip3 install --break-system-packages --quiet fastapi uvicorn
-
 # Запускаем
-systemctl daemon-reload
-systemctl enable mtg-agent
-systemctl start mtg-agent
-sleep 2
+cd "$AGENT_DIR"
+docker compose up -d
+sleep 3
 
 # Проверяем
-if systemctl is-active --quiet mtg-agent; then
+if curl -s http://localhost:${AGENT_PORT}/health | grep -q "ok"; then
     echo ""
     print_sep
     echo -e "${GREEN}✅ MTG Agent установлен и работает!${NC}"
@@ -240,15 +203,13 @@ if systemctl is-active --quiet mtg-agent; then
     echo -e "   Порт: ${AGENT_PORT}"
     echo -e "   Токен: ${AGENT_TOKEN}"
     echo -e "   Health: http://localhost:${AGENT_PORT}/health"
-    echo ""
-    echo -e "${YELLOW}Сохраните токен! Он нужен для Web UI.${NC}"
     
-    # Сохраняем токен в config
+    # Сохраняем токен
     mkdir -p "$INSTALL_DIR/config"
     echo "{\"agent_token\": \"${AGENT_TOKEN}\", \"agent_port\": ${AGENT_PORT}}" > "$INSTALL_DIR/config/agent.json"
     echo -e "${GREEN}Токен сохранён в $INSTALL_DIR/config/agent.json${NC}"
 else
     echo -e "${RED}❌ Ошибка запуска агента${NC}"
-    journalctl -u mtg-agent --no-pager -n 20
+    docker compose logs
     exit 1
 fi
