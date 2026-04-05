@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
 # ============================================================
 # MTProtoSERVER — MTG Agent Installer
 # Запускается в контейнере с pid:host + network_mode:host
@@ -16,7 +14,6 @@ NC='\033[0m'
 INSTALL_DIR="/opt/mtprotoserver"
 AGENT_DIR="/opt/mtg-agent"
 AGENT_PORT=9876
-AGENT_TOKEN=""
 
 print_sep() { echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"; }
 
@@ -27,10 +24,15 @@ print_sep
 echo ""
 
 mkdir -p "$AGENT_DIR"
+mkdir -p "$INSTALL_DIR/config"
 
 # Генерируем токен
 AGENT_TOKEN=$(openssl rand -hex 16)
 echo -e "${GREEN}Токен агента: ${AGENT_TOKEN}${NC}"
+
+# Сохраняем токен СРАЗУ
+echo "{\"agent_token\": \"${AGENT_TOKEN}\", \"agent_port\": ${AGENT_PORT}}" > "$INSTALL_DIR/config/agent.json"
+echo -e "${GREEN}Токен сохранён в $INSTALL_DIR/config/agent.json${NC}"
 
 # Создаём docker-compose с pid:host + network_mode:host
 cat > "$AGENT_DIR/docker-compose.yml" << EOF
@@ -189,13 +191,19 @@ async def get_proxy_traffic(name: str, x_token: str = Header(...)):
     return get_traffic_for_container(name)
 AGENTEOF
 
+# Сохраняем токен СРАЗУ, до запуска контейнера
+mkdir -p "$INSTALL_DIR/config"
+echo "{\"agent_token\": \"${AGENT_TOKEN}\", \"agent_port\": ${AGENT_PORT}}" > "$INSTALL_DIR/config/agent.json"
+echo -e "${GREEN}Токен сохранён в $INSTALL_DIR/config/agent.json${NC}"
+
+# Сохраняем токен СРАЗУ, до запуска контейнера
+mkdir -p "$INSTALL_DIR/config"
+echo "{\"agent_token\": \"${AGENT_TOKEN}\", \"agent_port\": ${AGENT_PORT}}" > "$INSTALL_DIR/config/agent.json"
+echo -e "${GREEN}Токен сохранён в $INSTALL_DIR/config/agent.json${NC}"
+
 # Запускаем
 cd "$AGENT_DIR"
 docker compose up -d
-
-# Сохраняем токен СРАЗУ (не ждём health check)
-mkdir -p "$INSTALL_DIR/config"
-echo "{\"agent_token\": \"${AGENT_TOKEN}\", \"agent_port\": ${AGENT_PORT}}" > "$INSTALL_DIR/config/agent.json"
 
 echo ""
 echo -e "${YELLOW}Ожидание запуска агента (установка пакетов)..."
@@ -213,23 +221,35 @@ if curl -sf http://localhost:${AGENT_PORT}/health | grep -q "ok"; then
     print_sep
     echo -e "${GREEN}✅ MTG Agent установлен и работает!${NC}"
     print_sep
-    echo -e "   Порт: ${AGENT_PORT}"
-    echo -e "   Токен: ${AGENT_TOKEN}"
-    echo -e "   Health: http://localhost:${AGENT_PORT}/health"
-    echo -e "${GREEN}Токен сохранён в $INSTALL_DIR/config/agent.json${NC}"
 else
     echo ""
     echo -e "${YELLOW}⚠️ Агент ещё запускается (устанавливает пакеты)..."
     echo -e "Проверьте через 30 секунд: curl http://localhost:${AGENT_PORT}/health"
+fi
+
+echo -e "   Порт: ${AGENT_PORT}"
+echo -e "   Токен: ${AGENT_TOKEN}"
+echo -e "   Health: http://localhost:${AGENT_PORT}/health"
+echo -e "${GREEN}Токен сохранён в $INSTALL_DIR/config/agent.json${NC}"
+    sleep 2
+done
+
+# Проверяем
+if curl -sf http://localhost:${AGENT_PORT}/health | grep -q "ok"; then
     echo ""
     print_sep
-    echo -e "${GREEN}✅ MTG Agent установлен!${NC}"
+    echo -e "${GREEN}✅ MTG Agent установлен и работает!${NC}"
     print_sep
-    echo -e "   Порт: ${AGENT_PORT}"
-    echo -e "   Токен: ${AGENT_TOKEN}"
-    echo -e "   Health: http://localhost:${AGENT_PORT}/health"
-    echo -e "${GREEN}Токен сохранён в $INSTALL_DIR/config/agent.json${NC}"
+else
+    echo ""
+    echo -e "${YELLOW}⚠️ Агент ещё запускается (устанавливает пакеты)..."
+    echo -e "Проверьте через 30 секунд: curl http://localhost:${AGENT_PORT}/health"
 fi
+
+echo -e "   Порт: ${AGENT_PORT}"
+echo -e "   Токен: ${AGENT_TOKEN}"
+echo -e "   Health: http://localhost:${AGENT_PORT}/health"
+echo -e "${GREEN}Токен сохранён в $INSTALL_DIR/config/agent.json${NC}"
     sleep 2
 done
 
