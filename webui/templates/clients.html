@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+{% block title %}Клиенты - MTProtoSERVER{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>👥 Управление клиентами</h2>
+    <p>Здесь вы создаёте и управляете клиентами MTProto прокси. Каждый клиент — это отдельная ссылка для подключения к Telegram через ваш прокси. Вы можете установить лимиты трафика, количества устройств и срок действия.</p>
+</div>
+
+<div class="section">
+    <h3>➕ Добавить клиента</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Создайте нового клиента с уникальной ссылкой. Порт и секрет генерируются автоматически. Вы можете выбрать ноду, установить лимиты и срок действия.</p>
+    <form id="add-client-form" class="form-grid">
+        <div class="form-group">
+            <label>Имя клиента</label>
+            <input type="text" name="label" placeholder="например: user1" required class="input">
+        </div>
+        <div class="form-group">
+            <label>Нода</label>
+            <select name="node_id" class="input">
+                <option value="0">Локальная (этот сервер)</option>
+                {% for node in nodes %}
+                <option value="{{ node.id }}">{{ node.country }} {{ node.name }} ({{ node.ip }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Домен маскировки</label>
+            <input type="text" name="domain" value="{{ settings.fake_domain | default('cloudflare.com') }}" class="input">
+        </div>
+        <div class="form-group">
+            <label>Лимит трафика (ГБ, 0 = без лимита)</label>
+            <input type="number" name="traffic_limit_gb" value="0" min="0" step="0.5" class="input">
+        </div>
+        <div class="form-group">
+            <label>Лимит устройств (0 = без лимита)</label>
+            <input type="number" name="device_limit" value="0" min="0" class="input">
+        </div>
+        <div class="form-group">
+            <label>Срок действия (дни, 0 = бессрочно)</label>
+            <input type="number" name="expiry_days" value="0" min="0" class="input">
+        </div>
+        <div class="form-group">
+            <label>Автосброс трафика</label>
+            <select name="auto_reset" class="input">
+                <option value="never">Никогда</option>
+                <option value="daily">Ежедневно</option>
+                <option value="monthly">Ежемесячно</option>
+                <option value="yearly">Ежегодно</option>
+            </select>
+        </div>
+        <div class="form-group" style="display:flex;align-items:flex-end;">
+            <button type="submit" class="btn btn-primary">➕ Добавить клиента</button>
+        </div>
+    </form>
+    <div id="add-result" class="result-box" style="display:none;"></div>
+</div>
+
+<div class="section">
+    <h3>📋 Все клиенты ({{ clients | length }})</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Таблица всех клиентов с информацией о трафике, устройствах, сроке действия и графиком подключений за 24 часа.</p>
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Имя</th>
+                    <th>Статус</th>
+                    <th>Порт</th>
+                    <th>Домен</th>
+                    <th>RX / TX</th>
+                    <th>IP</th>
+                    <th>Лимиты</th>
+                    <th>Срок</th>
+                    <th>24ч</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in clients %}
+                <tr class="{% if not c.enabled %}row-disabled{% endif %}">
+                    <td>{{ c.id }}</td>
+                    <td><strong>{{ c.label }}</strong></td>
+                    <td>
+                        {% if c.enabled %}
+                        <span class="badge badge-success">Активен</span>
+                        {% else %}
+                        <span class="badge badge-danger">Отключён</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ c.port }}</td>
+                    <td>{{ c.domain }}</td>
+                    <td>
+                        <div class="traffic-mini">
+                            <span class="rx">↓ {{ c.rx_bytes | default(0) | filesizeformat }}</span>
+                            <span class="tx">↑ {{ c.tx_bytes | default(0) | filesizeformat }}</span>
+                        </div>
+                    </td>
+                    <td>{{ c.unique_ips | default(0) }}</td>
+                    <td>
+                        {% if c.connected_ips %}
+                        <details>
+                            <summary style="cursor:pointer;color:var(--accent);">{{ c.connected_ips | length }} IP</summary>
+                            {% for ip in c.connected_ips %}
+                            <small>{{ ip }}</small><br>
+                            {% endfor %}
+                        </details>
+                        {% else %}
+                        <span style="color:var(--text-secondary)">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if c.connected_ips %}
+                        <details>
+                            <summary style="cursor:pointer;color:var(--accent);">{{ c.connected_ips | length }} IP</summary>
+                            {% for ip in c.connected_ips %}
+                            <small>{{ ip }}</small><br>
+                            {% endfor %}
+                        </details>
+                        {% else %}
+                        <span style="color:var(--text-secondary)">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if c.traffic_limit_gb > 0 %}
+                        <span title="Трафик: {{ c.traffic_limit_gb }} ГБ">💾{{ c.traffic_limit_gb }}G</span>
+                        {% endif %}
+                        {% if c.device_limit > 0 %}
+                        <span title="Устройств: {{ c.device_limit }}">📱{{ c.device_limit }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if c.expiry_date %}
+                        <span class="badge badge-warning">{{ c.expiry_date }}</span>
+                        {% else %}
+                        <span style="color:var(--text-secondary)">∞</span>
+                        {% endif %}
+                    </td>
+                    <td><canvas id="spark-{{ c.id }}" width="60" height="20"></canvas></td>
+                    <td class="actions-cell">
+                        <button class="btn btn-sm" onclick="copyLink('{{ server_ip }}', {{ c.port }}, '{{ c.secret }}')" title="Копировать ссылку">📋</button>
+                        <button class="btn btn-sm" onclick="showQR('{{ c.label }}', '{{ server_ip }}', {{ c.port }}, '{{ c.secret }}')" title="QR-код">📱</button>
+                        <button class="btn btn-sm" onclick="rotateClient({{ c.id }})" title="Ротировать секрет">🔄</button>
+                        <button class="btn btn-sm" onclick="resetTraffic({{ c.id }})" title="Сбросить трафик">📊</button>
+                        <button class="btn btn-sm" onclick="toggleClient({{ c.id }})" title="Вкл/Выкл">
+                            {% if c.enabled %}⏸️{% else %}▶️{% endif %}
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteClient({{ c.id }})" title="Удалить">🗑️</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="qr-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+        <span class="modal-close" onclick="closeModal()">&times;</span>
+        <h3 id="qr-title">QR-код</h3>
+        <img id="qr-img" src="" alt="QR" style="max-width:250px;">
+        <p id="qr-link" style="word-break:break-all;font-size:12px;margin-top:12px;"></p>
+        <button class="btn btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('qr-link').textContent)">📋 Копировать</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const proxyIp = '{{ server_ip }}';
+
+document.getElementById('add-client-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    const result = document.getElementById('add-result');
+    try {
+        const response = await fetch('/api/clients/add', { method: 'POST', body: formData });
+        const data = await response.json();
+        if (data.status === 'ok') {
+            result.style.display = 'block';
+            result.className = 'result-box success';
+            result.innerHTML = `<p>✅ Клиент добавлен! Порт: ${data.port}</p>
+                <p>Ссылка: <code>${data.link}</code></p>
+                <button class="btn btn-sm" onclick="navigator.clipboard.writeText('${data.link}')">📋 Копировать</button>`;
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            result.style.display = 'block';
+            result.className = 'result-box error';
+            result.textContent = '❌ Ошибка: ' + (data.message || 'Неизвестная');
+        }
+    } catch (err) {
+        result.style.display = 'block';
+        result.className = 'result-box error';
+        result.textContent = '❌ Ошибка: ' + err.message;
+    }
+});
+
+function copyLink(ip, port, secret) {
+    const link = `tg://proxy?server=${ip}&port=${port}&secret=${secret}`;
+    navigator.clipboard.writeText(link);
+    showToast('Ссылка скопирована!');
+}
+
+function showQR(label, ip, port, secret) {
+    const link = `tg://proxy?server=${ip}&port=${port}&secret=${secret}`;
+    document.getElementById('qr-title').textContent = label;
+    document.getElementById('qr-img').src = `/api/qr?text=${encodeURIComponent(link)}`;
+    document.getElementById('qr-link').textContent = link;
+    document.getElementById('qr-modal').style.display = 'flex';
+}
+
+function closeModal() { document.getElementById('qr-modal').style.display = 'none'; }
+
+async function toggleClient(id) {
+    await fetch(`/api/clients/${id}/toggle`, { method: 'POST' });
+    showToast('✅ Статус изменён');
+    setTimeout(() => location.reload(), 1000);
+}
+
+async function deleteClient(id) {
+    if (!confirm('Удалить этого клиента?')) return;
+    await fetch(`/api/clients/${id}/delete`, { method: 'POST' });
+    showToast('✅ Клиент удалён');
+    setTimeout(() => location.reload(), 1000);
+}
+
+async function rotateClient(id) {
+    if (!confirm('Ротировать секрет? Старая ссылка перестанет работать!')) return;
+    const res = await fetch(`/api/clients/${id}/rotate`, { method: 'POST' });
+    const data = await res.json();
+    if (data.status === 'ok') { showToast('✅ Секрет ротирован'); setTimeout(() => location.reload(), 1000); }
+}
+
+async function resetTraffic(id) {
+    await fetch(`/api/clients/${id}/reset-traffic`, { method: 'POST' });
+    showToast('✅ Трафик сброшен');
+    setTimeout(() => location.reload(), 1000);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    {% for c in clients %}
+    {% if c.history %}
+    drawSparkline('spark-{{ c.id }}', [{{ c.history | map(attribute='connections') | join(',') }}]);
+    {% else %}
+    drawSparkline('spark-{{ c.id }}', [0,0,0,0,0,0,0,0,0,0]);
+    {% endif %}
+    {% endfor %}
+});
+
+function drawSparkline(id, data) {
+    const canvas = document.getElementById(id);
+    if (!canvas || !data || data.length === 0) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    const max = Math.max(...data, 1);
+    ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = '#3498db';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    data.forEach((v, i) => {
+        const x = (i / (data.length - 1)) * w;
+        const y = h - (v / max) * (h - 4) - 2;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+}
+</script>
+{% endblock %}

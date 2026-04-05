@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-header">
     <h2>Дашборд</h2>
-    <p>Обзор состояния MTProto прокси ({{ proxy_count }} серверов)</p>
+    <p>Обзор — {{ proxy_count }} прокси серверов</p>
 </div>
 
 <div class="stats-grid">
@@ -18,7 +18,7 @@
         <div class="stat-icon">👥</div>
         <div class="stat-info">
             <h3>{{ users_count }}</h3>
-            <p>Всего пользователей</p>
+            <p>Пользователей</p>
         </div>
     </div>
     <div class="stat-card">
@@ -29,23 +29,24 @@
         </div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon">📡</div>
+        <div class="stat-icon">🖥️</div>
         <div class="stat-info">
-            <h3>{{ total_traffic | default(0) }}</h3>
-            <p>Трафик (байт)</p>
+            <h3>{{ system.cpu_percent }}%</h3>
+            <p>CPU</p>
         </div>
     </div>
 </div>
 
 <div class="section">
-    <h3>🌐 Прокси серверы ({{ proxy_count }})</h3>
+    <h3>🌐 Прокси серверы</h3>
+    {% if proxies %}
     <div class="proxies-grid">
         {% for proxy in proxies %}
         <div class="proxy-card {% if proxy.enabled %}proxy-active{% else %}proxy-inactive{% endif %}">
             <div class="proxy-header">
                 <h4>{{ proxy.label }}</h4>
                 {% if proxy.enabled %}
-                <span class="badge badge-success">Активен</span>
+                <span class="badge badge-success">Работает</span>
                 {% else %}
                 <span class="badge badge-danger">Отключён</span>
                 {% endif %}
@@ -53,7 +54,7 @@
             <div class="proxy-details">
                 <div><span>Порт:</span> <strong>{{ proxy.port }}</strong></div>
                 <div><span>Домен:</span> <strong>{{ proxy.domain }}</strong></div>
-                <div><span>Секрет:</span> <code>{{ proxy.secret[:16] }}...</code></div>
+                <div><span>Секрет:</span> <code>{{ proxy.secret[:20] }}...</code></div>
             </div>
             <div class="proxy-link-box">
                 <code>tg://proxy?server={{ settings.proxy_ip }}&port={{ proxy.port }}&secret={{ proxy.secret }}</code>
@@ -62,13 +63,51 @@
         </div>
         {% endfor %}
     </div>
+    {% else %}
+    <p style="color: var(--text-secondary);">Нет прокси серверов. <a href="/proxies" style="color: var(--accent);">Создать первый</a></p>
+    {% endif %}
     <div style="margin-top: 16px;">
         <a href="/proxies" class="btn btn-primary">➕ Добавить прокси</a>
     </div>
 </div>
 
 <div class="section">
-    <h3>🖥️ Системная информация</h3>
+    <h3>📡 Docker контейнеры</h3>
+    {% if containers %}
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Контейнер</th>
+                    <th>Статус</th>
+                    <th>Порты</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in containers %}
+                <tr>
+                    <td><strong>{{ c.name }}</strong></td>
+                    <td><span class="badge badge-success">{{ c.status }}</span></td>
+                    <td><code>{{ c.ports }}</code></td>
+                    <td>
+                        <button class="btn btn-sm" onclick="restartContainer('{{ c.name }}')">🔄 Перезапуск</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color: var(--text-secondary);">Контейнеры не запущены</p>
+    {% endif %}
+    <div style="margin-top: 12px;">
+        <button class="btn btn-primary" onclick="restartAll()">🔄 Перезапустить все</button>
+    </div>
+</div>
+
+<div class="section">
+    <h3>🖥️ Ресурсы сервера</h3>
     <div class="system-info">
         <div class="info-row">
             <span>CPU:</span>
@@ -82,14 +121,14 @@
             <div class="progress-bar">
                 <div class="progress-fill" style="width: {{ system.memory_percent }}%"></div>
             </div>
-            <span>{{ system.memory_used }}/{{ system.memory_total }} GB</span>
+            <span>{{ system.memory_used_gb }}/{{ system.memory_total_gb }} GB</span>
         </div>
         <div class="info-row">
             <span>Диск:</span>
             <div class="progress-bar">
                 <div class="progress-fill" style="width: {{ system.disk_percent }}%"></div>
             </div>
-            <span>{{ system.disk_used }}/{{ system.disk_total }} GB</span>
+            <span>{{ system.disk_used_gb }}/{{ system.disk_total_gb }} GB</span>
         </div>
     </div>
 </div>
@@ -98,12 +137,16 @@
     <h3>⚡ Быстрые действия</h3>
     <div class="actions-grid">
         <a href="/users" class="action-card">
-            <span class="action-icon">➕</span>
-            <span>Добавить пользователя</span>
+            <span class="action-icon">👥</span>
+            <span>Пользователи</span>
         </a>
         <a href="/proxies" class="action-card">
             <span class="action-icon">🌐</span>
-            <span>Управление прокси</span>
+            <span>Прокси серверы</span>
+        </a>
+        <a href="/socks5" class="action-card">
+            <span class="action-icon">🧦</span>
+            <span>SOCKS5 прокси</span>
         </a>
         <a href="/stats" class="action-card">
             <span class="action-icon">📈</span>
@@ -119,4 +162,30 @@
         </a>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function restartContainer(name) {
+    if (!confirm('Перезапустить ' + name + '?')) return;
+    const fd = new FormData();
+    fd.append('name', name);
+    const res = await fetch('/api/system/restart-container', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.status === 'ok') {
+        showToast('✅ ' + name + ' перезапущен');
+        setTimeout(() => location.reload(), 1500);
+    }
+}
+
+async function restartAll() {
+    if (!confirm('Перезапустить все контейнеры?')) return;
+    const res = await fetch('/api/system/restart', { method: 'POST' });
+    const data = await res.json();
+    if (data.status === 'ok') {
+        showToast('✅ Все контейнеры перезапускаются');
+        setTimeout(() => location.reload(), 3000);
+    }
+}
+</script>
 {% endblock %}

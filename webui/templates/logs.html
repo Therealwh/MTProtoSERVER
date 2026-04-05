@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Логи - MTProtoSERVER{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>📋 Логи контейнеров</h2>
+    <p>Здесь вы можете просматривать логи Docker-контейнеров в реальном времени. Это помогает диагностировать проблемы: ошибки подключения, сбои контейнеров и другие события.</p>
+</div>
+
+<div class="section">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h3 style="margin:0;">📡 Последние логи</h3>
+        <button class="btn btn-primary" onclick="loadLogs()">🔄 Обновить</button>
+    </div>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Показаны последние строки логов всех контейнеров. Обновляются автоматически каждые 30 секунд.</p>
+    <pre class="log-box" id="logs-box">Загрузка логов...</pre>
+</div>
+
+<div class="section">
+    <h3>🔍 Фильтр</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Выберите конкретный контейнер и количество строк для отображения.</p>
+    <div class="form-inline">
+        <select id="log-container" class="input">
+            <option value="">Все контейнеры</option>
+        </select>
+        <input type="number" id="log-lines" value="100" min="10" max="1000" class="input" style="width:80px;">
+        <span style="color:var(--text-secondary)">строк</span>
+        <button class="btn" onclick="loadLogs()">Загрузить</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadLogs() {
+    const box = document.getElementById('logs-box');
+    box.textContent = 'Загрузка...';
+    try {
+        const lines = document.getElementById('log-lines').value || 100;
+        const res = await fetch(`/api/system/logs?lines=${lines}`);
+        const data = await res.json();
+        box.textContent = data.logs || 'Нет логов';
+    } catch(e) { box.textContent = 'Ошибка загрузки: ' + e.message; }
+}
+
+fetch('/api/status').then(r => r.json()).then(data => {
+    const sel = document.getElementById('log-container');
+    if (data.containers) {
+        data.containers.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.name; opt.textContent = c.name;
+            sel.appendChild(opt);
+        });
+    }
+});
+
+loadLogs();
+setInterval(loadLogs, 30000);
+</script>
+{% endblock %}

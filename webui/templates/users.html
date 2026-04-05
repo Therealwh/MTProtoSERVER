@@ -21,7 +21,7 @@
 </div>
 
 <div class="section">
-    <h3>📋 Список пользователей ({{ users | length }})</h3>
+    <h3>📋 Пользователи ({{ users | length }})</h3>
     <div class="table-container">
         <table class="table">
             <thead>
@@ -31,8 +31,6 @@
                     <th>Прокси</th>
                     <th>Статус</th>
                     <th>Секрет</th>
-                    <th>Трафик IN</th>
-                    <th>Трафик OUT</th>
                     <th>Действия</th>
                 </tr>
             </thead>
@@ -58,10 +56,8 @@
                         {% endif %}
                     </td>
                     <td><code class="secret-code">{{ user.secret[:16] }}...</code></td>
-                    <td>{{ user.traffic_in | default(0) }}</td>
-                    <td>{{ user.traffic_out | default(0) }}</td>
                     <td class="actions-cell">
-                        <button class="btn btn-sm" onclick="copyUserLink('{{ user.secret }}')">📋 Ссылка</button>
+                        <button class="btn btn-sm" onclick="copyUserLink('{{ user.secret }}', {{ user.proxy_id }})">📋</button>
                         <button class="btn btn-sm" onclick="toggleUser({{ user.id }})">
                             {% if user.enabled %}⏸️{% else %}▶️{% endif %}
                         </button>
@@ -77,6 +73,9 @@
 
 {% block scripts %}
 <script>
+const proxies = {{ proxies | tojson }};
+const proxyIp = '{{ settings.proxy_ip }}';
+
 document.getElementById('add-user-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;
@@ -84,19 +83,22 @@ document.getElementById('add-user-form').addEventListener('submit', async (e) =>
     const result = document.getElementById('add-result');
 
     try {
-        const response = await fetch('/api/users/add', {
-            method: 'POST',
-            body: formData
-        });
+        const response = await fetch('/api/users/add', { method: 'POST', body: formData });
         const data = await response.json();
-        result.style.display = 'block';
-        result.className = 'result-box success';
-        result.innerHTML = `
-            <p>✅ Пользователь добавлен!</p>
-            <p>Ссылка: <code>${data.link}</code></p>
-            <button class="btn btn-sm" onclick="navigator.clipboard.writeText('${data.link}')">📋 Копировать</button>
-        `;
-        setTimeout(() => location.reload(), 2000);
+        if (data.status === 'ok') {
+            result.style.display = 'block';
+            result.className = 'result-box success';
+            result.innerHTML = `
+                <p>✅ Пользователь добавлен!</p>
+                <p>Ссылка: <code>${data.link}</code></p>
+                <button class="btn btn-sm" onclick="navigator.clipboard.writeText('${data.link}')">📋 Копировать</button>
+            `;
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            result.style.display = 'block';
+            result.className = 'result-box error';
+            result.textContent = '❌ Ошибка: ' + (data.message || 'Неизвестная');
+        }
     } catch (err) {
         result.style.display = 'block';
         result.className = 'result-box error';
@@ -104,21 +106,34 @@ document.getElementById('add-user-form').addEventListener('submit', async (e) =>
     }
 });
 
-function copyUserLink(secret) {
-    const link = `{{ settings.proxy_ip ? 'tg://proxy?server=' + settings.proxy_ip + '&port=' + settings.proxy_port + '&secret=' : '' }}${secret}`;
+function getProxyPort(proxyId) {
+    for (const p of proxies) {
+        if (p.id === proxyId) return p.port;
+    }
+    return 443;
+}
+
+function copyUserLink(secret, proxyId) {
+    const port = getProxyPort(proxyId);
+    const link = `tg://proxy?server=${proxyIp}&port=${port}&secret=${secret}`;
     navigator.clipboard.writeText(link);
     showToast('Ссылка скопирована!');
 }
 
 async function toggleUser(id) {
-    await fetch(`/api/users/${id}/toggle`, { method: 'POST' });
-    location.reload();
+    const res = await fetch(`/api/users/${id}/toggle`, { method: 'POST' });
+    const data = await res.json();
+    if (data.status === 'ok') {
+        showToast('✅ Статус изменён');
+        setTimeout(() => location.reload(), 1000);
+    }
 }
 
 async function deleteUser(id) {
     if (!confirm('Удалить пользователя?')) return;
     await fetch(`/api/users/${id}/delete`, { method: 'POST' });
-    location.reload();
+    showToast('✅ Пользователь удалён');
+    setTimeout(() => location.reload(), 1000);
 }
 </script>
 {% endblock %}

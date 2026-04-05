@@ -48,7 +48,8 @@
                     </td>
                     <td><code class="secret-code">{{ proxy.secret[:16] }}...</code></td>
                     <td class="actions-cell">
-                        <button class="btn btn-sm" onclick="copyProxyLink('{{ settings.proxy_ip }}', {{ proxy.port }}, '{{ proxy.secret }}')">📋 Ссылка</button>
+                        <button class="btn btn-sm" onclick="copyProxyLink('{{ settings.proxy_ip }}', {{ proxy.port }}, '{{ proxy.secret }}')">📋</button>
+                        <button class="btn btn-sm" onclick="rotateSecret({{ proxy.id }})">🔄</button>
                         <button class="btn btn-sm" onclick="toggleProxy({{ proxy.id }})">
                             {% if proxy.enabled %}⏸️{% else %}▶️{% endif %}
                         </button>
@@ -66,19 +67,19 @@
     <div class="tips-list">
         <div class="tip-item">
             <span class="tip-icon">🔌</span>
-            <span>Каждый прокси работает на своём порту — убедитесь что порты открыты в файрволе</span>
+            <span>Каждый прокси на своём порту — откройте порты в файрволе: <code>ufw allow PORT/tcp</code></span>
         </div>
         <div class="tip-item">
             <span class="tip-icon">🛡️</span>
-            <span>Используйте разные домены для разных прокси — если один заблокируют, другие продолжат работать</span>
-        </div>
-        <div class="tip-item">
-            <span class="tip-icon">📱</span>
-            <span>Рекомендуемые домены: cloudflare.com, 1c.ru, sberbank.ru, yandex.ru</span>
+            <span>Разные домены = если один заблокируют, другие работают</span>
         </div>
         <div class="tip-item">
             <span class="tip-icon">🔄</span>
-            <span>После добавления нового прокси перезапустите: <code>cd /opt/mtprotoserver && docker compose up -d</code></span>
+            <span>После добавления нового прокси: <code>cd /opt/mtprotoserver && docker compose up -d</code></span>
+        </div>
+        <div class="tip-item">
+            <span class="tip-icon">🔑</span>
+            <span>Ротация секрета = новый ключ для прокси, старые ссылки перестанут работать</span>
         </div>
     </div>
 </div>
@@ -93,19 +94,22 @@ document.getElementById('add-proxy-form').addEventListener('submit', async (e) =
     const result = document.getElementById('add-result');
 
     try {
-        const response = await fetch('/api/proxies/add', {
-            method: 'POST',
-            body: formData
-        });
+        const response = await fetch('/api/proxies/add', { method: 'POST', body: formData });
         const data = await response.json();
-        result.style.display = 'block';
-        result.className = 'result-box success';
-        result.innerHTML = `
-            <p>✅ Прокси добавлен!</p>
-            <p>Ссылка: <code>${data.link}</code></p>
-            <button class="btn btn-sm" onclick="navigator.clipboard.writeText('${data.link}')">📋 Копировать</button>
-        `;
-        setTimeout(() => location.reload(), 2000);
+        if (data.status === 'ok') {
+            result.style.display = 'block';
+            result.className = 'result-box success';
+            result.innerHTML = `
+                <p>✅ Прокси добавлен! После перезапуска контейнеров будет доступен.</p>
+                <p>Ссылка: <code>${data.link}</code></p>
+                <button class="btn btn-sm" onclick="navigator.clipboard.writeText('${data.link}')">📋 Копировать</button>
+                <p style="margin-top:8px;color:var(--text-secondary)">⚠️ Выполните: <code>cd /opt/mtprotoserver && docker compose up -d</code></p>
+            `;
+        } else {
+            result.style.display = 'block';
+            result.className = 'result-box error';
+            result.textContent = '❌ Ошибка: ' + (data.message || 'Неизвестная ошибка');
+        }
     } catch (err) {
         result.style.display = 'block';
         result.className = 'result-box error';
@@ -120,14 +124,29 @@ function copyProxyLink(ip, port, secret) {
 }
 
 async function toggleProxy(id) {
-    await fetch(`/api/proxies/${id}/toggle`, { method: 'POST' });
-    location.reload();
+    const res = await fetch(`/api/proxies/${id}/toggle`, { method: 'POST' });
+    const data = await res.json();
+    if (data.status === 'ok') {
+        showToast('✅ Статус изменён');
+        setTimeout(() => location.reload(), 1000);
+    }
+}
+
+async function rotateSecret(id) {
+    if (!confirm('Ротировать секрет? Старые ссылки перестанут работать!')) return;
+    const res = await fetch(`/api/proxies/${id}/rotate-secret`, { method: 'POST' });
+    const data = await res.json();
+    if (data.status === 'ok') {
+        showToast('✅ Секрет ротирован');
+        setTimeout(() => location.reload(), 1000);
+    }
 }
 
 async function deleteProxy(id) {
-    if (!confirm('Удалить этот прокси сервер?')) return;
+    if (!confirm('Удалить этот прокси?')) return;
     await fetch(`/api/proxies/${id}/delete`, { method: 'POST' });
-    location.reload();
+    showToast('✅ Прокси удалён');
+    setTimeout(() => location.reload(), 1000);
 }
 </script>
 {% endblock %}

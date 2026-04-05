@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}API Документация - MTProtoSERVER{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>📚 Публичный API Документация</h2>
+    <p>Используйте эти эндпоинты для получения данных о прокси на вашем сайте. Авторизация не требуется.</p>
+</div>
+
+<div class="section">
+    <h3>🌐 Базовый URL</h3>
+    <div class="proxy-link-box">
+        <code>{{ base_url }}</code>
+        <button class="btn btn-sm" onclick="copyText('{{ base_url }}')">📋</button>
+    </div>
+</div>
+
+<div class="section">
+    <h3>📡 Эндпоинты</h3>
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr><th>Метод</th><th>Эндпоинт</th><th>Описание</th><th>Авторизация</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="badge badge-success">GET</span></td>
+                    <td><code>/api/public/proxies</code></td>
+                    <td>Все прокси сервера (MTProto + SOCKS5 + HTTP)</td>
+                    <td>❌ Не требуется</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-success">GET</span></td>
+                    <td><code>/api/public/mtproto</code></td>
+                    <td>Только MTProto прокси (массив ссылок)</td>
+                    <td>❌ Не требуется</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-success">GET</span></td>
+                    <td><code>/api/public/docs</code></td>
+                    <td>Эта страница документации</td>
+                    <td>❌ Не требуется</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="section">
+    <h3>📦 Ответ /api/public/proxies</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Возвращает все прокси сервера: MTProto, SOCKS5 и HTTP.</p>
+    <pre class="log-box">{
+  "updated": "2026-04-05T12:00:00",
+  "server_ip": "{{ server_ip }}",
+  "mtproto": [
+    {
+      "label": "main",
+      "port": 443,
+      "domain": "cloudflare.com",
+      "secret": "ee...",
+      "link": "tg://proxy?server={{ server_ip }}&port=443&secret=ee..."
+    }
+  ],
+  "socks5": {
+    "enabled": true,
+    "port": 1080,
+    "link": "socks5://{{ server_ip }}:1080"
+  },
+  "http": {
+    "enabled": true,
+    "port": 3128,
+    "link": "http://{{ server_ip }}:3128"
+  }
+}</pre>
+</div>
+
+<div class="section">
+    <h3>📦 Ответ /api/public/mtproto</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Возвращает только MTProto прокси — массив ссылок для подключения.</p>
+    <pre class="log-box">{
+  "proxies": [
+    {
+      "label": "main",
+      "port": 443,
+      "domain": "cloudflare.com",
+      "secret": "ee...",
+      "link": "tg://proxy?server={{ server_ip }}&port=443&secret=ee..."
+    }
+  ],
+  "updated": "2026-04-05T12:00:00"
+}</pre>
+</div>
+
+<div class="section">
+    <h3>💻 Примеры использования</h3>
+    
+    <h4 style="margin-top:16px;">JavaScript (fetch)</h4>
+    <pre class="log-box">// Получить все прокси
+const res = await fetch('{{ base_url }}/api/public/proxies');
+const data = await res.json();
+
+// MTProto прокси
+data.mtproto.forEach(proxy => {
+  console.log(proxy.link); // tg://proxy?server=...
+});
+
+// SOCKS5
+if (data.socks5.enabled) {
+  console.log(data.socks5.link);
+}
+
+// HTTP
+if (data.http.enabled) {
+  console.log(data.http.link);
+}</pre>
+
+    <h4 style="margin-top:16px;">Python</h4>
+    <pre class="log-box">import requests
+
+res = requests.get('{{ base_url }}/api/public/proxies')
+data = res.json()
+
+for proxy in data['mtproto']:
+    print(proxy['link'])</pre>
+
+    <h4 style="margin-top:16px;">cURL</h4>
+    <pre class="log-box">curl {{ base_url }}/api/public/proxies</pre>
+
+    <h4 style="margin-top:16px;">PHP</h4>
+    <pre class="log-box">&lt;?php
+$data = json_decode(file_get_contents('{{ base_url }}/api/public/proxies'), true);
+foreach ($data['mtproto'] as $proxy) {
+    echo $proxy['link'] . "\n";
+}
+?&gt;</pre>
+</div>
+
+<div class="section">
+    <h3>🔗 Попробовать</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Нажмите кнопку чтобы получить актуальные данные прямо сейчас.</p>
+    <div class="form-inline" style="gap:8px;">
+        <button class="btn btn-primary" onclick="testApi('proxies')">📡 /api/public/proxies</button>
+        <button class="btn btn-primary" onclick="testApi('mtproto')">📡 /api/public/mtproto</button>
+    </div>
+    <pre id="api-result" class="log-box" style="margin-top:12px;display:none;"></pre>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function testApi(endpoint) {
+    const result = document.getElementById('api-result');
+    result.style.display = 'block';
+    result.textContent = 'Загрузка...';
+    try {
+        const res = await fetch(`/api/public/${endpoint}`);
+        const data = await res.json();
+        result.textContent = JSON.stringify(data, null, 2);
+    } catch (err) {
+        result.textContent = '❌ Ошибка: ' + err.message;
+    }
+}
+</script>
+{% endblock %}

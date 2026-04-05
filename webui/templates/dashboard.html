@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% block title %}Дашборд - MTProtoSERVER{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>📊 Дашборд</h2>
+    <p>Общий обзор состояния вашей системы прокси. Здесь вы видите количество клиентов, нод, трафик и ресурсы сервера.</p>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon">🔐</div>
+        <div class="stat-info">
+            <h3>{{ active_proxies }}/{{ proxy_count }}</h3>
+            <p>MTProto прокси</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">👥</div>
+        <div class="stat-info">
+            <h3>{{ total_connections | default(0) }}</h3>
+            <p>Подключений</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">🖥️</div>
+        <div class="stat-info">
+            <h3>{{ nodes_count }}</h3>
+            <p>Нод</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">⬇️</div>
+        <div class="stat-info">
+            <h3>{{ total_rx }}</h3>
+            <p>Всего получено (RX)</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">⬆️</div>
+        <div class="stat-info">
+            <h3>{{ total_tx }}</h3>
+            <p>Всего отправлено (TX)</p>
+        </div>
+    </div>
+</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">👥</div>
+        <div class="stat-info">
+            <h3>{{ total_connections | default(0) }}</h3>
+            <p>Подключений</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">🖥️</div>
+        <div class="stat-info">
+            <h3>{{ nodes_count }}</h3>
+            <p>Нод</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">⬇️</div>
+        <div class="stat-info">
+            <h3>{{ total_rx }}</h3>
+            <p>Всего получено (RX)</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">⬆️</div>
+        <div class="stat-info">
+            <h3>{{ total_tx }}</h3>
+            <p>Всего отправлено (TX)</p>
+        </div>
+    </div>
+</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">👥</div>
+        <div class="stat-info">
+            <h3>{{ clients_count }}</h3>
+            <p>Клиентов</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">🖥️</div>
+        <div class="stat-info">
+            <h3>{{ nodes_count }}</h3>
+            <p>Нод</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">⬇️</div>
+        <div class="stat-info">
+            <h3>{{ total_rx }}</h3>
+            <p>Всего получено (RX)</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">⬆️</div>
+        <div class="stat-info">
+            <h3>{{ total_tx }}</h3>
+            <p>Всего отправлено (TX)</p>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h3>🖥️ Ресурсы сервера</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Показывает текущую загрузку процессора, оперативной памяти и диска вашего сервера.</p>
+    <div class="system-info">
+        <div class="info-row">
+            <span>CPU:</span>
+            <div class="progress-bar"><div class="progress-fill" style="width: {{ system.cpu_percent }}%"></div></div>
+            <span>{{ system.cpu_percent }}%</span>
+        </div>
+        <div class="info-row">
+            <span>RAM:</span>
+            <div class="progress-bar"><div class="progress-fill" style="width: {{ system.memory_percent }}%"></div></div>
+            <span>{{ system.memory_used_gb }}/{{ system.memory_total_gb }} GB</span>
+        </div>
+        <div class="info-row">
+            <span>Диск:</span>
+            <div class="progress-bar"><div class="progress-fill" style="width: {{ system.disk_percent }}%"></div></div>
+            <span>{{ system.disk_used_gb }}/{{ system.disk_total_gb }} GB</span>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h3>📡 Docker контейнеры</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Список всех запущенных Docker-контейнеров. Здесь вы видите статус прокси, веб-интерфейса, бота и других сервисов.</p>
+    {% if containers %}
+    <div class="table-container">
+        <table class="table">
+            <thead><tr><th>Контейнер</th><th>Статус</th><th>Порты</th><th>Действия</th></tr></thead>
+            <tbody>
+                {% for c in containers %}
+                <tr>
+                    <td><strong>{{ c.name }}</strong></td>
+                    <td><span class="badge badge-success">{{ c.status }}</span></td>
+                    <td><code>{{ c.ports }}</code></td>
+                    <td><button class="btn btn-sm" onclick="restartContainer('{{ c.name }}')">🔄 Перезапуск</button></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color:var(--text-secondary)">Нет запущенных контейнеров</p>
+    {% endif %}
+    <div style="margin-top:12px;">
+        <button class="btn btn-primary" onclick="restartAll()">🔄 Перезапустить все</button>
+    </div>
+</div>
+
+<div class="section">
+    <h3>⚡ Быстрые действия</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Быстрый переход к основным разделам управления и создание новых сервисов.</p>
+    <div class="actions-grid">
+        <a href="/clients" class="action-card"><span class="action-icon">👥</span><span>Управление клиентами</span></a>
+        <a href="/nodes" class="action-card"><span class="action-icon">🖥️</span><span>Управление нодами</span></a>
+        <a href="/mtproto" class="action-card"><span class="action-icon">🔐</span><span>Настройки MTProto</span></a>
+        <a href="/stats" class="action-card"><span class="action-icon">📈</span><span>Статистика</span></a>
+        <a href="/security" class="action-card"><span class="action-icon">🛡️</span><span>Безопасность</span></a>
+        <a href="/backup" class="action-card"><span class="action-icon">💾</span><span>Бэкап</span></a>
+        <div class="action-card" onclick="createSocks5()" style="cursor:pointer;"><span class="action-icon">🧦</span><span>Создать SOCKS5</span></div>
+        <div class="action-card" onclick="createHttp()" style="cursor:pointer;"><span class="action-icon">🌐</span><span>Создать HTTP</span></div>
+        <div class="action-card" onclick="updateSystem()" style="cursor:pointer;"><span class="action-icon">🔄</span><span>Обновить систему</span></div>
+        <div class="action-card" onclick="uninstallAll()" style="cursor:pointer;border-color:var(--danger);"><span class="action-icon">🗑️</span><span style="color:var(--danger);">Удалить всё</span></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function restartContainer(name) {
+    if (!confirm('Перезапустить ' + name + '?')) return;
+    const fd = new FormData(); fd.append('name', name);
+    const res = await fetch('/api/system/restart-container', { method: 'POST', body: fd });
+    if ((await res.json()).status === 'ok') { showToast('✅ ' + name + ' перезапущен'); setTimeout(() => location.reload(), 1500); }
+}
+async function restartAll() {
+    if (!confirm('Перезапустить все контейнеры?')) return;
+    const res = await fetch('/api/system/restart', { method: 'POST' });
+    if ((await res.json()).status === 'ok') { showToast('✅ Все контейнеры перезапускаются'); setTimeout(() => location.reload(), 3000); }
+}
+async function updateSystem() {
+    if (!confirm('Обновить систему? Контейнеры будут перезапущены.')) return;
+    showToast('Обновление...');
+    const res = await fetch('/api/system/update', { method: 'POST' });
+    const data = await res.json();
+    if (data.status === 'ok') { showToast('✅ Система обновлена!'); setTimeout(() => location.reload(), 3000); }
+    else { showToast('❌ Ошибка: ' + (data.message || 'Неизвестная')); }
+}
+async function uninstallAll() {
+    if (!confirm('⚠️ УДАЛИТЬ ВСЁ? Все контейнеры, данные, конфиги будут безвозвратно удалены!')) return;
+    if (!confirm('Вы ТОЧНО уверены? Это действие необратимо!')) return;
+    showToast('Удаление...');
+    const res = await fetch('/api/system/uninstall', { method: 'POST' });
+    if ((await res.json()).status === 'ok') { showToast('✅ Система удалена. Перенаправление...'); setTimeout(() => window.location.href='/login', 3000); }
+}
+async function createSocks5() {
+    const port = prompt('Порт SOCKS5:', '1080');
+    if (!port) return;
+    const user = prompt('Логин:', 'proxyuser') || 'proxyuser';
+    const password = prompt('Пароль:', '') || Math.random().toString(36).slice(-8);
+    const fd = new FormData(); fd.append('port', port); fd.append('user', user); fd.append('password', password);
+    showToast('Создание SOCKS5...');
+    const res = await fetch('/api/proxies/socks5/create', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.status === 'ok') { showToast('✅ SOCKS5 создан: '+user+':'+password+'@:'+data.port); setTimeout(() => location.reload(), 2000); }
+    else { showToast('❌ Ошибка'); }
+}
+async function createHttp() {
+    const port = prompt('Порт HTTP/HTTPS:', '3128');
+    if (!port) return;
+    const user = prompt('Логин:', 'proxyuser') || 'proxyuser';
+    const password = prompt('Пароль:', '') || Math.random().toString(36).slice(-8);
+    const fd = new FormData(); fd.append('port', port); fd.append('user', user); fd.append('password', password);
+    showToast('Создание HTTP прокси...');
+    const res = await fetch('/api/proxies/http/create', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.status === 'ok') { showToast('✅ HTTP прокси создан: '+user+':'+password+'@:'+data.port); setTimeout(() => location.reload(), 2000); }
+    else { showToast('❌ Ошибка'); }
+}
+</script>
+<script>
+// Auto-refresh every 10 seconds
+setInterval(() => location.reload(), 10000);
+</script>
+{% endblock %}

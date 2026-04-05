@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block title %}Ноды - MTProtoSERVER{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>🖥️ Управление нодами</h2>
+    <p>Ноды — это серверы, на которых работают ваши MTProto прокси. Вы можете добавить несколько серверов в разных локациях для повышения надёжности и скорости. Каждая нода запускает MTG Agent — лёгкий сервис для мониторинга и управления.</p>
+</div>
+
+<div class="section">
+    <h3>📖 Что такое ноды и зачем они нужны?</h3>
+    <div class="tips-list">
+        <div class="tip-item">
+            <span class="tip-icon">🖥️</span>
+            <span><strong>Нода</strong> — это отдельный сервер (VPS/VDS) с установленным MTG Agent. Агент позволяет панели управления видеть статус прокси, трафик и подключения на удалённом сервере.</span>
+        </div>
+        <div class="tip-item">
+            <span class="tip-icon">🌍</span>
+            <span><strong>Зачем несколько нод?</strong> Если одна нода упадёт или будет заблокирована — остальные продолжат работать. Также можно разместить ноды в разных странах для лучшей скорости.</span>
+        </div>
+        <div class="tip-item">
+            <span class="tip-icon">📊</span>
+            <span><strong>Что видит панель?</strong> Статус контейнеров, трафик RX/TX, количество уникальных IP, историю подключений за 24 часа.</span>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h3>📦 Пошаговая инструкция: как добавить ноду</h3>
+    <div class="tips-list">
+        <div class="tip-item">
+            <span class="tip-icon">1️⃣</span>
+            <span><strong>Арендуйте VPS</strong> — любой сервер с Ubuntu/Debian (от 1 ядра, 512MB RAM). Подойдёт любой хостинг.</span>
+        </div>
+        <div class="tip-item">
+            <span class="tip-icon">2️⃣</span>
+            <span><strong>Установите Docker</strong> на удалённый сервер: <code>curl -fsSL https://get.docker.com | sh</code></span>
+        </div>
+        <div class="tip-item">
+            <span class="tip-icon">3️⃣</span>
+            <span><strong>Придумайте секретный токен</strong> — это пароль для связи между панелью и нодой. Например: <code>mySecretToken123</code>. Запишите его.</span>
+        </div>
+        <div class="tip-item">
+            <span class="tip-icon">4️⃣</span>
+            <span><strong>Установите MTG Agent</strong> на удалённый сервер. Выполните эту команду на удалённом сервере (замените YOUR_TOKEN на ваш токен):</span>
+        </div>
+    </div>
+    <div class="proxy-link-box" style="margin:12px 0;">
+        <code id="agent-cmd">curl -fsSL https://raw.githubusercontent.com/Therealwh/MTProtoSERVER/main/agent/install.sh | bash -s -- --port 9876 --token YOUR_TOKEN</code>
+        <button class="btn btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('agent-cmd').textContent)">📋</button>
+    </div>
+    <div class="tips-list">
+        <div class="tip-item">
+            <span class="tip-icon">5️⃣</span>
+            <span><strong>Откройте порт 9876</strong> на удалённом сервере: <code>ufw allow 9876/tcp</code></span>
+        </div>
+        <div class="tip-item">
+            <span class="tip-icon">6️⃣</span>
+            <span><strong>Добавьте ноду в панель</strong> — заполните форму ниже: название, IP удалённого сервера, порт 9876, флаг страны и тот же токен, что указали при установке агента.</span>
+        </div>
+        <div class="tip-item">
+            <span class="tip-icon">7️⃣</span>
+            <span><strong>Проверьте связь</strong> — нажмите кнопку 📡 (пинг). Если статус «Онлайн» — нода подключена и работает!</span>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h3>➕ Добавить ноду</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Заполните данные удалённого сервера. Токен должен совпадать с тем, что указан при установке MTG Agent.</p>
+    <form id="add-node-form" class="form-grid">
+        <div class="form-group">
+            <label>Название ноды</label>
+            <input type="text" name="name" placeholder="например: node-ams" required class="input">
+        </div>
+        <div class="form-group">
+            <label>IP-адрес</label>
+            <input type="text" name="ip" placeholder="1.2.3.4" required class="input">
+        </div>
+        <div class="form-group">
+            <label>Порт агента</label>
+            <input type="number" name="port" value="9876" class="input">
+        </div>
+        <div class="form-group">
+            <label>Флаг страны</label>
+            <input type="text" name="country" value="🌍" class="input" style="width:60px;">
+        </div>
+        <div class="form-group">
+            <label>Токен агента</label>
+            <input type="text" name="token" placeholder="секретный токен" required class="input">
+        </div>
+        <div class="form-group">
+            <label>Тип авторизации</label>
+            <select name="auth_type" class="input">
+                <option value="token">Токен</option>
+                <option value="ssh">SSH</option>
+            </select>
+        </div>
+        <div class="form-group" style="display:flex;align-items:flex-end;">
+            <button type="submit" class="btn btn-primary">➕ Добавить ноду</button>
+        </div>
+    </form>
+    <div id="add-result" class="result-box" style="display:none;"></div>
+</div>
+
+<div class="section">
+    <h3>📋 Все ноды ({{ nodes | length }})</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Список всех нод с их статусом. Кнопки: 📡 — проверить связь (ping), 🔄 — синхронизировать клиентов с ноды, ⏸️/▶️ — включить/отключить, 🗑️ — удалить.</p>
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Название</th>
+                    <th>IP:Порт</th>
+                    <th>Страна</th>
+                    <th>Статус</th>
+                    <th>Последний пинг</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for n in nodes %}
+                <tr>
+                    <td>{{ n.id }}</td>
+                    <td><strong>{{ n.name }}</strong></td>
+                    <td><code>{{ n.ip }}:{{ n.port }}</code></td>
+                    <td style="font-size:24px;">{{ n.country }}</td>
+                    <td>
+                        {% if n.status == 'online' %}
+                        <span class="badge badge-success">Онлайн</span>
+                        {% elif n.status == 'offline' %}
+                        <span class="badge badge-danger">Офлайн</span>
+                        {% else %}
+                        <span class="badge badge-warning">Неизвестно</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ n.last_ping or 'Никогда' }}</td>
+                    <td class="actions-cell">
+                        <button class="btn btn-sm" onclick="pingNode({{ n.id }})" title="Проверить связь">📡</button>
+                        <button class="btn btn-sm" onclick="syncNode({{ n.id }})" title="Синхронизировать клиентов">🔄</button>
+                        <button class="btn btn-sm" onclick="toggleNode({{ n.id }})" title="Включить/Отключить">
+                            {% if n.enabled %}⏸️{% else %}▶️{% endif %}
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteNode({{ n.id }})" title="Удалить ноду">🗑️</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('add-node-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    const result = document.getElementById('add-result');
+    try {
+        const response = await fetch('/api/nodes/add', { method: 'POST', body: formData });
+        const data = await response.json();
+        if (data.status === 'ok') {
+            result.style.display = 'block';
+            result.className = 'result-box success';
+            result.textContent = '✅ Нода добавлена!';
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            result.style.display = 'block';
+            result.className = 'result-box error';
+            result.textContent = '❌ Ошибка: ' + (data.message || 'Неизвестная');
+        }
+    } catch (err) {
+        result.style.display = 'block';
+        result.className = 'result-box error';
+        result.textContent = '❌ Ошибка: ' + err.message;
+    }
+});
+
+async function pingNode(id) {
+    showToast('Проверка связи...');
+    const res = await fetch(`/api/nodes/${id}/ping`, { method: 'POST' });
+    const data = await res.json();
+    if (data.status === 'ok') {
+        showToast(`${data.node_status === 'online' ? '✅ Онлайн' : '❌ Офлайн'} (пинг в ${data.last_ping})`);
+        setTimeout(() => location.reload(), 1500);
+    }
+}
+
+async function syncNode(id) {
+    showToast('Синхронизация...');
+    const res = await fetch(`/api/nodes/${id}/sync`, { method: 'POST' });
+    const data = await res.json();
+    if (data.status === 'ok') {
+        showToast(`✅ Синхронизировано ${data.synced} клиентов`);
+        setTimeout(() => location.reload(), 1500);
+    } else {
+        showToast('❌ Ошибка: ' + (data.message || 'Неизвестная'));
+    }
+}
+
+async function toggleNode(id) {
+    await fetch(`/api/nodes/${id}/toggle`, { method: 'POST' });
+    showToast('✅ Статус изменён');
+    setTimeout(() => location.reload(), 1000);
+}
+
+async function deleteNode(id) {
+    if (!confirm('Удалить эту ноду?')) return;
+    await fetch(`/api/nodes/${id}/delete`, { method: 'POST' });
+    showToast('✅ Нода удалена');
+    setTimeout(() => location.reload(), 1000);
+}
+</script>
+{% endblock %}
