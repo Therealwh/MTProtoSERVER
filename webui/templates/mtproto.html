@@ -313,10 +313,26 @@ async function updateProxy(label, idx) {
 
 async function deleteProxy(label) {
     if (!confirm(`Удалить прокси "${label}"?`)) return;
-    const res = await fetch(`/api/mtproto/${encodeURIComponent(label)}/delete`, { method: 'POST' });
-    if ((await res.json()).status === 'ok') {
-        showToast('✅ Прокси удалён');
-        setTimeout(() => loadProxyList(), 1000);
+    try {
+        const url = `/api/mtproto/${encodeURIComponent(label)}/delete`;
+        console.log('Deleting:', url);
+        const res = await fetch(url, { method: 'POST' });
+        const data = await res.json();
+        console.log('Delete response:', data);
+        if (data.status === 'ok') {
+            showToast('✅ Прокси удалён');
+            setTimeout(() => loadProxyList(), 1000);
+        } else {
+            showToast('❌ Ошибка: ' + (data.message || 'Неизвестная'));
+        }
+    } catch (err) {
+        showToast('❌ Ошибка сети: ' + err.message);
+        console.error('Delete error:', err);
+    }
+}
+    } catch (err) {
+        showToast('❌ Ошибка сети: ' + err.message);
+        console.error('Delete error:', err);
     }
 }
 

@@ -595,15 +595,21 @@ async def create_mtproto(request: Request):
 
 @app.post("/api/mtproto/{label}/delete")
 async def delete_mtproto(label: str):
+    from urllib.parse import unquote
+    label = unquote(label)
+    pd = load_json(os.path.join(DATA_DIR, 'proxies.json'))
+    before = len(pd.get('proxies', []))
+    pd['proxies'] = [p for p in pd.get('proxies', []) if p.get('label') != label]
+    after = len(pd.get('proxies', []))
+    save_json(os.path.join(DATA_DIR, 'proxies.json'), pd)
+    # Update settings
     s = get_settings()
-    s['proxy_count'] = max(0, s.get('proxy_count', 1) - 1)
+    s['proxy_count'] = after
     save_settings(s)
+    # Try to remove container
     try: subprocess.run(['docker', 'rm', '-f', f'mtproto-proxy-{label}'], capture_output=True, timeout=10)
     except: pass
-    pd = load_json(os.path.join(DATA_DIR, 'proxies.json'))
-    pd['proxies'] = [p for p in pd.get('proxies', []) if p.get('label') != label]
-    save_json(os.path.join(DATA_DIR, 'proxies.json'), pd)
-    return JSONResponse({'status': 'ok'})
+    return JSONResponse({'status': 'ok', 'deleted': before > after, 'label': label})
 
 @app.post("/api/mtproto/{label}/update")
 async def update_mtproto(label: str, request: Request):
