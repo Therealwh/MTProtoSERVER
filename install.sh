@@ -520,11 +520,7 @@ COMPOSE_HEADER_EOF
     restart: unless-stopped
     ports:
       - "${p_port}:${p_port}"
-    command: >
-      simple-run
-      -a ${p_secret}
-      --prefer-ip=prefer-ipv4
-      0.0.0.0:${p_port}
+    command: ["simple-run", "-n", "1.1.1.1", "-i", "prefer-ipv4", "0.0.0.0:${p_port}", "${p_secret}"]
     volumes:
       - ./data/mtproxy-${p_label}:/data
     networks:
