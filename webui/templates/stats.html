@@ -95,14 +95,14 @@
             <div class="progress-bar">
                 <div class="progress-fill" style="width: {{ system.memory_percent }}%"></div>
             </div>
-            <span>{{ system.memory_used }}/{{ system.memory_total }} GB</span>
+            <span>{{ system.memory_used_gb }}/{{ system.memory_total_gb }} GB</span>
         </div>
         <div class="info-row">
             <span>Диск:</span>
             <div class="progress-bar">
                 <div class="progress-fill" style="width: {{ system.disk_percent }}%"></div>
             </div>
-            <span>{{ system.disk_used }}/{{ system.disk_total }} GB</span>
+            <span>{{ system.disk_used_gb }}/{{ system.disk_total_gb }} GB</span>
         </div>
     </div>
 </div>

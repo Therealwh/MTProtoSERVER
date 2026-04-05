@@ -59,14 +59,16 @@ def get_proxy_stats():
         return "Недоступно"
 
 def get_system_info():
+    mem = psutil.virtual_memory()
+    disk = psutil.disk_usage('/')
     return {
         'cpu_percent': psutil.cpu_percent(),
-        'memory_percent': psutil.virtual_memory().percent,
-        'memory_total': psutil.virtual_memory().total // (1024**3),
-        'memory_used': psutil.virtual_memory().used // (1024**3),
-        'disk_percent': psutil.disk_usage('/').percent,
-        'disk_total': psutil.disk_usage('/').total // (1024**3),
-        'disk_used': psutil.disk_usage('/').used // (1024**3),
+        'memory_percent': mem.percent,
+        'memory_total_gb': round(mem.total / (1024**3), 1),
+        'memory_used_gb': round(mem.used / (1024**3), 1),
+        'disk_percent': disk.percent,
+        'disk_total_gb': round(disk.total / (1024**3), 1),
+        'disk_used_gb': round(disk.used / (1024**3), 1),
     }
 
 @app.get("/", response_class=HTMLResponse)
