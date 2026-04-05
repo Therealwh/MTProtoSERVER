@@ -734,33 +734,31 @@ def get_all_mtproto():
     ip = s.get('proxy_ip', '0.0.0.0')
     proxies = []
     pd = load_json(os.path.join(DATA_DIR, 'proxies.json'))
+    # Read /proc/net/tcp from host (mounted at /host_proc_net_tcp)
+    connections = {}  # port -> set of remote IPs
+    try:
+        with open('/host_proc_net_tcp', 'r') as f:
+            for line in f:
+                parts = line.strip().split()
+                if len(parts) >= 4 and parts[3] == '01':  # ESTABLISHED
+                    local = parts[1].split(':')
+                    remote = parts[2].split(':')
+                    if len(local) >= 2 and len(remote) >= 2:
+                        port = int(local[1], 16)
+                        # Convert hex IP to dotted decimal (little-endian)
+                        rip_hex = remote[0]
+                        if len(rip_hex) == 8:
+                            rip = '.'.join([str(int(rip_hex[i:i+2], 16)) for i in (6,4,2,0)])
+                            if rip != '127.0.0.1' and rip != '0.0.0.0':
+                                if port not in connections:
+                                    connections[port] = set()
+                                connections[port].add(rip)
+    except: pass
     for p in pd.get('proxies', []):
         if p.get('enabled', True):
             port = p.get('port', 0)
             label = p.get('label', '')
-            unique_ips = 0
-            # Try docker exec on proxy container
-            container = f'mtproto-proxy-{label}'
-            try:
-                # Use cat /proc/net/tcp which always works
-                r = subprocess.run(['docker', 'exec', container, 'cat', '/proc/net/tcp'],
-                                  capture_output=True, text=True, timeout=5)
-                if r.returncode == 0:
-                    hex_port = format(port, 'X').upper().zfill(4)
-                    ips = set()
-                    for line in r.stdout.strip().split('\n')[1:]:
-                        parts = line.strip().split()
-                        if len(parts) >= 4 and parts[3] == '01':  # ESTABLISHED
-                            local = parts[1].split(':')
-                            if len(local) >= 2 and local[1].upper() == hex_port:
-                                remote_ip_hex = parts[2].split(':')[0]
-                                # Convert hex IP to dotted decimal
-                                if len(remote_ip_hex) == 8:
-                                    remote_ip = '.'.join([str(int(remote_ip_hex[i:i+2], 16)) for i in (6,4,2,0)])
-                                    if remote_ip != '127.0.0.1' and remote_ip != '0.0.0.0':
-                                        ips.add(remote_ip)
-                    unique_ips = len(ips)
-            except: pass
+            unique_ips = len(connections.get(port, set()))
             proxies.append({
                 'label': label,
                 'port': port,
