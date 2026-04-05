@@ -548,20 +548,7 @@ async def create_mtproto(request: Request):
                        f'0.0.0.0:{port}', secret], capture_output=True, timeout=30)
     except Exception as e:
         return JSONResponse({'status': 'error', 'message': str(e)}, status_code=500)
-    # Save to clients.json
-    cd = get_clients()
-    cl = cd.get('clients', [])
-    next_id = cd.get('next_id', 1)
-    cl.append({
-        'id': next_id, 'label': label, 'node_id': 0, 'port': port, 'domain': domain,
-        'secret': secret, 'enabled': True, 'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        'traffic_limit_gb': 0, 'device_limit': 0, 'expiry_date': '', 'auto_reset': 'never',
-        'rx_bytes': 0, 'tx_bytes': 0, 'unique_ips': 0, 'connections': 0, 'history': []
-    })
-    cd['clients'] = cl
-    cd['next_id'] = next_id + 1
-    save_clients(cd)
-    # Save to proxies.json
+    # Save to proxies.json (single source of truth)
     pd = load_json(os.path.join(DATA_DIR, 'proxies.json'))
     pl = pd.get('proxies', [])
     p_next_id = pd.get('next_id', 1)
@@ -586,9 +573,6 @@ async def delete_mtproto(label: str):
     save_settings(s)
     try: subprocess.run(['docker', 'rm', '-f', f'mtproto-proxy-{label}'], capture_output=True, timeout=10)
     except: pass
-    cd = get_clients()
-    cd['clients'] = [c for c in cd.get('clients', []) if c.get('label') != label]
-    save_clients(cd)
     pd = load_json(os.path.join(DATA_DIR, 'proxies.json'))
     pd['proxies'] = [p for p in pd.get('proxies', []) if p.get('label') != label]
     save_json(os.path.join(DATA_DIR, 'proxies.json'), pd)
@@ -603,11 +587,11 @@ async def update_mtproto(label: str, request: Request):
     new_label = form.get('new_label', label)
     s = get_settings()
     ip = s.get('proxy_ip', '0.0.0.0')
-    cd = get_clients()
+    pd = load_json(os.path.join(DATA_DIR, 'proxies.json'))
     proxy = None
-    for c in cd.get('clients', []):
-        if c.get('label') == label:
-            proxy = c; break
+    for p in pd.get('proxies', []):
+        if p.get('label') == label:
+            proxy = p; break
     if not proxy:
         return JSONResponse({'status': 'error', 'message': 'Прокси не найден'}, status_code=404)
     port = new_port or proxy.get('port', 443)
@@ -630,11 +614,6 @@ async def update_mtproto(label: str, request: Request):
                        f'0.0.0.0:{port}', secret], capture_output=True, timeout=30)
     except Exception as e:
         return JSONResponse({'status': 'error', 'message': str(e)}, status_code=500)
-    for c in cd.get('clients', []):
-        if c.get('label') == label:
-            c['label'] = new_label; c['port'] = port; c['domain'] = domain; c['secret'] = secret; break
-    save_clients(cd)
-    pd = load_json(os.path.join(DATA_DIR, 'proxies.json'))
     for p in pd.get('proxies', []):
         if p.get('label') == label:
             p['label'] = new_label; p['port'] = port; p['domain'] = domain; p['secret'] = secret; break
@@ -646,23 +625,14 @@ async def update_mtproto(label: str, request: Request):
 async def list_mtproto():
     s = get_settings()
     ip = s.get('proxy_ip', '0.0.0.0')
-    proxies = []
-    cd = get_clients()
-    for c in cd.get('clients', []):
-        proxies.append({
-            'label': c.get('label', ''), 'port': c.get('port', 0), 'domain': c.get('domain', ''),
-            'secret': c.get('secret', ''), 'enabled': c.get('enabled', True),
-            'link': proxy_link(ip, c.get('port', 0), c.get('secret', ''))
-        })
     pd = load_json(os.path.join(DATA_DIR, 'proxies.json'))
+    proxies = []
     for p in pd.get('proxies', []):
-        exists = any(x['label'] == p.get('label') for x in proxies)
-        if not exists:
-            proxies.append({
-                'label': p.get('label', ''), 'port': p.get('port', 0), 'domain': p.get('domain', ''),
-                'secret': p.get('secret', ''), 'enabled': p.get('enabled', True),
-                'link': proxy_link(ip, p.get('port', 0), p.get('secret', ''))
-            })
+        proxies.append({
+            'label': p.get('label', ''), 'port': p.get('port', 0), 'domain': p.get('domain', ''),
+            'secret': p.get('secret', ''), 'enabled': p.get('enabled', True),
+            'link': proxy_link(ip, p.get('port', 0), p.get('secret', ''))
+        })
     return JSONResponse({'proxies': proxies})
 
 @app.post("/api/mtproto/{label}/update")
@@ -739,38 +709,20 @@ async def list_mtproto():
 # =================== PUBLIC API (no auth required) ===================
 
 def get_all_mtproto():
-    """Get MTProto proxies from both clients.json and proxies.json"""
+    """Get MTProto proxies from proxies.json (single source of truth)"""
     s = get_settings()
     ip = s.get('proxy_ip', '0.0.0.0')
     proxies = []
-    
-    # From clients.json
-    cd = get_clients()
-    for c in cd.get('clients', []):
-        if c.get('enabled', True):
-            proxies.append({
-                'label': c.get('label', ''),
-                'port': c.get('port', 0),
-                'domain': c.get('domain', ''),
-                'secret': c.get('secret', ''),
-                'link': proxy_link(ip, c.get('port', 0), c.get('secret', ''))
-            })
-    
-    # From proxies.json (created during install)
     pd = load_json(os.path.join(DATA_DIR, 'proxies.json'))
     for p in pd.get('proxies', []):
         if p.get('enabled', True):
-            # Check if not already in list
-            exists = any(x['port'] == p.get('port') for x in proxies)
-            if not exists:
-                proxies.append({
-                    'label': p.get('label', ''),
-                    'port': p.get('port', 0),
-                    'domain': p.get('domain', ''),
-                    'secret': p.get('secret', ''),
-                    'link': proxy_link(ip, p.get('port', 0), p.get('secret', ''))
-                })
-    
+            proxies.append({
+                'label': p.get('label', ''),
+                'port': p.get('port', 0),
+                'domain': p.get('domain', ''),
+                'secret': p.get('secret', ''),
+                'link': proxy_link(ip, p.get('port', 0), p.get('secret', ''))
+            })
     return proxies
 
 @app.get("/api/public/proxies")
@@ -779,13 +731,11 @@ async def public_proxies():
     s = get_settings()
     ip = s.get('proxy_ip', '0.0.0.0')
     mtproto = get_all_mtproto()
-    # SOCKS5
     socks5 = {
         'enabled': s.get('socks5_enabled', False),
         'port': s.get('socks5_port', 0),
         'link': f"socks5://{ip}:{s.get('socks5_port', 0)}" if s.get('socks5_enabled') else ''
     }
-    # HTTP
     http = {
         'enabled': s.get('http_proxy_enabled', False),
         'port': s.get('http_proxy_port', 0),

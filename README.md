@@ -2,12 +2,13 @@
 
 <div align="center">
 
-![Версия](https://img.shields.io/badge/версия-2.0.0-brightgreen)
+![Версия](https://img.shields.io/badge/версия-2.0.0-orange)
+![Статус](https://img.shields.io/badge/статус-WIP-yellow)
 ![Лицензия](https://img.shields.io/badge/лицензия-MIT-blue)
-![Docker](https://img.shields.io/badge/docker-✅-blue)
-![FakeTLS](https://img.shields.io/badge/FakeTLS-✅-orange)
-![Мульти-ноды](https://img.shields.io/badge/мульти--ноды-✅-purple)
-![2FA](https://img.shields.io/badge/2FA-TOTP-red)
+
+> ⚠️ **Внимание:** Проект находится в активной разработке. Возможны ошибки и нестабильная работа. Все функции тестируются и дорабатываются. Используйте на свой страх и риск!
+
+</div>
 
 **Полноценная платформа для управления MTProto прокси с обходом блокировок, мульти-нодами, мониторингом и управлением клиентами**
 
