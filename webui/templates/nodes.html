@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block title %}Nodes - MTProtoSERVER{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>🖥️ Node Management</h2>
+    <p>Add, manage and monitor proxy nodes</p>
+</div>
+
+<div class="section">
+    <h3>➕ Add Node</h3>
+    <form id="add-node-form" class="form-grid">
+        <div class="form-group">
+            <label>Name</label>
+            <input type="text" name="name" placeholder="node-1" required class="input">
+        </div>
+        <div class="form-group">
+            <label>IP Address</label>
+            <input type="text" name="ip" placeholder="1.2.3.4" required class="input">
+        </div>
+        <div class="form-group">
+            <label>Agent Port</label>
+            <input type="number" name="port" value="9876" class="input">
+        </div>
+        <div class="form-group">
+            <label>Country Flag</label>
+            <input type="text" name="country" value="🌍" class="input" style="width:60px;">
+        </div>
+        <div class="form-group">
+            <label>Agent Token</label>
+            <input type="text" name="token" placeholder="agent-token" required class="input">
+        </div>
+        <div class="form-group">
+            <label>Auth Type</label>
+            <select name="auth_type" class="input">
+                <option value="token">Token</option>
+                <option value="ssh">SSH</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>SSH User (if SSH)</label>
+            <input type="text" name="ssh_user" placeholder="root" class="input">
+        </div>
+        <div class="form-group">
+            <label>SSH Password/Key</label>
+            <input type="password" name="ssh_pass" placeholder="password or key" class="input">
+        </div>
+        <div class="form-group" style="display:flex;align-items:flex-end;">
+            <button type="submit" class="btn btn-primary">➕ Add Node</button>
+        </div>
+    </form>
+    <div id="add-result" class="result-box" style="display:none;"></div>
+</div>
+
+<div class="section">
+    <h3>📋 All Nodes ({{ nodes | length }})</h3>
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>IP:Port</th>
+                    <th>Country</th>
+                    <th>Status</th>
+                    <th>Last Ping</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for n in nodes %}
+                <tr>
+                    <td>{{ n.id }}</td>
+                    <td><strong>{{ n.name }}</strong></td>
+                    <td><code>{{ n.ip }}:{{ n.port }}</code></td>
+                    <td style="font-size:24px;">{{ n.country }}</td>
+                    <td>
+                        {% if n.status == 'online' %}
+                        <span class="badge badge-success">Online</span>
+                        {% elif n.status == 'offline' %}
+                        <span class="badge badge-danger">Offline</span>
+                        {% else %}
+                        <span class="badge badge-warning">Unknown</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ n.last_ping or 'Never' }}</td>
+                    <td class="actions-cell">
+                        <button class="btn btn-sm" onclick="pingNode({{ n.id }})" title="Ping">📡</button>
+                        <button class="btn btn-sm" onclick="syncNode({{ n.id }})" title="Sync clients">🔄</button>
+                        <button class="btn btn-sm" onclick="toggleNode({{ n.id }})" title="Toggle">
+                            {% if n.enabled %}⏸️{% else %}▶️{% endif %}
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteNode({{ n.id }})" title="Delete">🗑️</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="section">
+    <h3>📦 Install Agent on Remote Node</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Run this on the remote server to install the MTG Agent:</p>
+    <div class="proxy-link-box">
+        <code id="agent-install-cmd">curl -fsSL https://raw.githubusercontent.com/Therealwh/MTProtoSERVER/main/agent/install.sh | bash -s -- --port 9876 --token YOUR_TOKEN</code>
+        <button class="btn btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('agent-install-cmd').textContent)">📋</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('add-node-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    const result = document.getElementById('add-result');
+    try {
+        const response = await fetch('/api/nodes/add', { method: 'POST', body: formData });
+        const data = await response.json();
+        if (data.status === 'ok') {
+            result.style.display = 'block';
+            result.className = 'result-box success';
+            result.textContent = '✅ Node added!';
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            result.style.display = 'block';
+            result.className = 'result-box error';
+            result.textContent = '❌ Error: ' + (data.message || 'Unknown');
+        }
+    } catch (err) {
+        result.style.display = 'block';
+        result.className = 'result-box error';
+        result.textContent = '❌ Error: ' + err.message;
+    }
+});
+
+async function pingNode(id) {
+    showToast('Pinging...');
+    const res = await fetch(`/api/nodes/${id}/ping`, { method: 'POST' });
+    const data = await res.json();
+    if (data.status === 'ok') {
+        showToast(`${data.node_status === 'online' ? '✅' : '❌'} ${data.node_status} (pinged at ${data.last_ping})`);
+        setTimeout(() => location.reload(), 1500);
+    }
+}
+
+async function syncNode(id) {
+    showToast('Syncing...');
+    const res = await fetch(`/api/nodes/${id}/sync`, { method: 'POST' });
+    const data = await res.json();
+    if (data.status === 'ok') {
+        showToast(`✅ Synced ${data.synced} clients`);
+        setTimeout(() => location.reload(), 1500);
+    } else {
+        showToast('❌ Sync failed: ' + (data.message || 'Unknown'));
+    }
+}
+
+async function toggleNode(id) {
+    await fetch(`/api/nodes/${id}/toggle`, { method: 'POST' });
+    showToast('✅ Status changed');
+    setTimeout(() => location.reload(), 1000);
+}
+
+async function deleteNode(id) {
+    if (!confirm('Delete this node?')) return;
+    await fetch(`/api/nodes/${id}/delete`, { method: 'POST' });
+    showToast('✅ Node deleted');
+    setTimeout(() => location.reload(), 1000);
+}
+</script>
+{% endblock %}

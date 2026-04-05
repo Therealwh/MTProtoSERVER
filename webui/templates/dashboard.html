@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - MTProtoSERVER{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>📊 Dashboard</h2>
+    <p>Overview — {{ clients_count }} clients, {{ nodes_count }} nodes</p>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon">👥</div>
+        <div class="stat-info">
+            <h3>{{ active_clients }}/{{ clients_count }}</h3>
+            <p>Active clients</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">🖥️</div>
+        <div class="stat-info">
+            <h3>{{ nodes_count }}</h3>
+            <p>Nodes</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">⬇️</div>
+        <div class="stat-info">
+            <h3>{{ total_rx }}</h3>
+            <p>Total RX</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">⬆️</div>
+        <div class="stat-info">
+            <h3>{{ total_tx }}</h3>
+            <p>Total TX</p>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h3>🖥️ Server Resources</h3>
+    <div class="system-info">
+        <div class="info-row">
+            <span>CPU:</span>
+            <div class="progress-bar"><div class="progress-fill" style="width: {{ system.cpu_percent }}%"></div></div>
+            <span>{{ system.cpu_percent }}%</span>
+        </div>
+        <div class="info-row">
+            <span>RAM:</span>
+            <div class="progress-bar"><div class="progress-fill" style="width: {{ system.memory_percent }}%"></div></div>
+            <span>{{ system.memory_used_gb }}/{{ system.memory_total_gb }} GB</span>
+        </div>
+        <div class="info-row">
+            <span>Disk:</span>
+            <div class="progress-bar"><div class="progress-fill" style="width: {{ system.disk_percent }}%"></div></div>
+            <span>{{ system.disk_used_gb }}/{{ system.disk_total_gb }} GB</span>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h3>📡 Docker Containers</h3>
+    {% if containers %}
+    <div class="table-container">
+        <table class="table">
+            <thead><tr><th>Container</th><th>Status</th><th>Ports</th><th>Actions</th></tr></thead>
+            <tbody>
+                {% for c in containers %}
+                <tr>
+                    <td><strong>{{ c.name }}</strong></td>
+                    <td><span class="badge badge-success">{{ c.status }}</span></td>
+                    <td><code>{{ c.ports }}</code></td>
+                    <td><button class="btn btn-sm" onclick="restartContainer('{{ c.name }}')">🔄 Restart</button></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color:var(--text-secondary)">No running containers</p>
+    {% endif %}
+    <div style="margin-top:12px;">
+        <button class="btn btn-primary" onclick="restartAll()">🔄 Restart All</button>
+    </div>
+</div>
+
+<div class="section">
+    <h3>⚡ Quick Actions</h3>
+    <div class="actions-grid">
+        <a href="/clients" class="action-card"><span class="action-icon">👥</span><span>Manage Clients</span></a>
+        <a href="/nodes" class="action-card"><span class="action-icon">🖥️</span><span>Manage Nodes</span></a>
+        <a href="/stats" class="action-card"><span class="action-icon">📈</span><span>Statistics</span></a>
+        <a href="/settings" class="action-card"><span class="action-icon">⚙️</span><span>Settings</span></a>
+        <a href="/security" class="action-card"><span class="action-icon">🛡️</span><span>Security</span></a>
+        <a href="/backup" class="action-card"><span class="action-icon">💾</span><span>Backup</span></a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function restartContainer(name) {
+    if (!confirm('Restart ' + name + '?')) return;
+    const fd = new FormData(); fd.append('name', name);
+    const res = await fetch('/api/system/restart-container', { method: 'POST', body: fd });
+    if ((await res.json()).status === 'ok') { showToast('✅ ' + name + ' restarted'); setTimeout(() => location.reload(), 1500); }
+}
+async function restartAll() {
+    if (!confirm('Restart all containers?')) return;
+    const res = await fetch('/api/system/restart', { method: 'POST' });
+    if ((await res.json()).status === 'ok') { showToast('✅ All containers restarting'); setTimeout(() => location.reload(), 3000); }
+}
+</script>
+{% endblock %}

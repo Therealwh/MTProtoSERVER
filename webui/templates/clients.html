@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+{% block title %}Clients - MTProtoSERVER{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>👥 Client Management</h2>
+    <p>Create, manage and monitor MTProto proxy clients</p>
+</div>
+
+<div class="section">
+    <h3>➕ Add Client</h3>
+    <form id="add-client-form" class="form-grid">
+        <div class="form-group">
+            <label>Name</label>
+            <input type="text" name="label" placeholder="client-name" required class="input">
+        </div>
+        <div class="form-group">
+            <label>Node</label>
+            <select name="node_id" class="input">
+                <option value="0">Local (this server)</option>
+                {% for node in nodes %}
+                <option value="{{ node.id }}">{{ node.country }} {{ node.name }} ({{ node.ip }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Domain</label>
+            <input type="text" name="domain" value="{{ settings.fake_domain | default('cloudflare.com') }}" class="input">
+        </div>
+        <div class="form-group">
+            <label>Traffic Limit (GB, 0=unlimited)</label>
+            <input type="number" name="traffic_limit_gb" value="0" min="0" step="0.5" class="input">
+        </div>
+        <div class="form-group">
+            <label>Device Limit (0=unlimited)</label>
+            <input type="number" name="device_limit" value="0" min="0" class="input">
+        </div>
+        <div class="form-group">
+            <label>Expiry (days, 0=never)</label>
+            <input type="number" name="expiry_days" value="0" min="0" class="input">
+        </div>
+        <div class="form-group">
+            <label>Auto-reset Traffic</label>
+            <select name="auto_reset" class="input">
+                <option value="never">Never</option>
+                <option value="daily">Daily</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+            </select>
+        </div>
+        <div class="form-group" style="display:flex;align-items:flex-end;">
+            <button type="submit" class="btn btn-primary">➕ Add Client</button>
+        </div>
+    </form>
+    <div id="add-result" class="result-box" style="display:none;"></div>
+</div>
+
+<div class="section">
+    <h3>📋 All Clients ({{ clients | length }})</h3>
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Status</th>
+                    <th>Port</th>
+                    <th>Domain</th>
+                    <th>RX / TX</th>
+                    <th>IPs</th>
+                    <th>Limits</th>
+                    <th>Expiry</th>
+                    <th>24h</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in clients %}
+                <tr class="{% if not c.enabled %}row-disabled{% endif %} {% if c.expiry_date and c.expiry_date < now %}row-expired{% endif %}">
+                    <td>{{ c.id }}</td>
+                    <td><strong>{{ c.label }}</strong></td>
+                    <td>
+                        {% if c.enabled %}
+                        <span class="badge badge-success">Active</span>
+                        {% else %}
+                        <span class="badge badge-danger">Disabled</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ c.port }}</td>
+                    <td>{{ c.domain }}</td>
+                    <td>
+                        <div class="traffic-mini">
+                            <span class="rx">↓ {{ c.rx_bytes | default(0) | filesizeformat }}</span>
+                            <span class="tx">↑ {{ c.tx_bytes | default(0) | filesizeformat }}</span>
+                        </div>
+                    </td>
+                    <td>{{ c.unique_ips | default(0) }}</td>
+                    <td>
+                        {% if c.traffic_limit_gb > 0 %}
+                        <span title="Traffic: {{ c.traffic_limit_gb }}GB">💾{{ c.traffic_limit_gb }}G</span>
+                        {% endif %}
+                        {% if c.device_limit > 0 %}
+                        <span title="Devices: {{ c.device_limit }}">📱{{ c.device_limit }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if c.expiry_date %}
+                        <span class="{% if c.expiry_date < now %}badge badge-danger{% else %}badge badge-warning{% endif %}">
+                            {{ c.expiry_date }}
+                        </span>
+                        {% else %}
+                        <span style="color:var(--text-secondary)">∞</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <canvas id="spark-{{ c.id }}" width="60" height="20"></canvas>
+                    </td>
+                    <td class="actions-cell">
+                        <button class="btn btn-sm" onclick="showQR('{{ c.label }}', '{{ settings.proxy_ip }}', {{ c.port }}, '{{ c.secret }}')" title="QR">📱</button>
+                        <button class="btn btn-sm" onclick="copyLink('{{ settings.proxy_ip }}', {{ c.port }}, '{{ c.secret }}')" title="Copy link">📋</button>
+                        <button class="btn btn-sm" onclick="rotateClient({{ c.id }})" title="Rotate secret">🔄</button>
+                        <button class="btn btn-sm" onclick="resetTraffic({{ c.id }})" title="Reset traffic">📊</button>
+                        <button class="btn btn-sm" onclick="toggleClient({{ c.id }})" title="Toggle">
+                            {% if c.enabled %}⏸️{% else %}▶️{% endif %}
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteClient({{ c.id }})" title="Delete">🗑️</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- QR Modal -->
+<div id="qr-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+        <span class="modal-close" onclick="closeModal()">&times;</span>
+        <h3 id="qr-title">QR Code</h3>
+        <img id="qr-img" src="" alt="QR" style="max-width:250px;">
+        <p id="qr-link" style="word-break:break-all;font-size:12px;margin-top:12px;"></p>
+        <button class="btn btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('qr-link').textContent)">📋 Copy</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const proxyIp = '{{ settings.proxy_ip }}';
+
+document.getElementById('add-client-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    const result = document.getElementById('add-result');
+    try {
+        const response = await fetch('/api/clients/add', { method: 'POST', body: formData });
+        const data = await response.json();
+        if (data.status === 'ok') {
+            result.style.display = 'block';
+            result.className = 'result-box success';
+            result.innerHTML = `<p>✅ Client added! Port: ${data.port}</p>
+                <p>Link: <code>${data.link}</code></p>
+                <button class="btn btn-sm" onclick="navigator.clipboard.writeText('${data.link}')">📋 Copy</button>`;
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            result.style.display = 'block';
+            result.className = 'result-box error';
+            result.textContent = '❌ Error: ' + (data.message || 'Unknown');
+        }
+    } catch (err) {
+        result.style.display = 'block';
+        result.className = 'result-box error';
+        result.textContent = '❌ Error: ' + err.message;
+    }
+});
+
+function copyLink(ip, port, secret) {
+    const link = `tg://proxy?server=${ip}&port=${port}&secret=${secret}`;
+    navigator.clipboard.writeText(link);
+    showToast('Link copied!');
+}
+
+function showQR(label, ip, port, secret) {
+    const link = `tg://proxy?server=${ip}&port=${port}&secret=${secret}`;
+    document.getElementById('qr-title').textContent = label;
+    document.getElementById('qr-img').src = `/api/qr?text=${encodeURIComponent(link)}`;
+    document.getElementById('qr-link').textContent = link;
+    document.getElementById('qr-modal').style.display = 'flex';
+}
+
+function closeModal() { document.getElementById('qr-modal').style.display = 'none'; }
+
+async function toggleClient(id) {
+    await fetch(`/api/clients/${id}/toggle`, { method: 'POST' });
+    showToast('✅ Status changed');
+    setTimeout(() => location.reload(), 1000);
+}
+
+async function deleteClient(id) {
+    if (!confirm('Delete this client?')) return;
+    await fetch(`/api/clients/${id}/delete`, { method: 'POST' });
+    showToast('✅ Client deleted');
+    setTimeout(() => location.reload(), 1000);
+}
+
+async function rotateClient(id) {
+    if (!confirm('Rotate secret? Old links will stop working!')) return;
+    const res = await fetch(`/api/clients/${id}/rotate`, { method: 'POST' });
+    const data = await res.json();
+    if (data.status === 'ok') { showToast('✅ Secret rotated'); setTimeout(() => location.reload(), 1000); }
+}
+
+async function resetTraffic(id) {
+    await fetch(`/api/clients/${id}/reset-traffic`, { method: 'POST' });
+    showToast('✅ Traffic reset');
+    setTimeout(() => location.reload(), 1000);
+}
+
+// Draw sparklines
+document.addEventListener('DOMContentLoaded', () => {
+    {% for c in clients %}
+    {% if c.history %}
+    drawSparkline('spark-{{ c.id }}', [{{ c.history | map(attribute='connections') | join(',') }}]);
+    {% else %}
+    drawSparkline('spark-{{ c.id }}', [0,0,0,0,0,0,0,0,0,0]);
+    {% endif %}
+    {% endfor %}
+});
+
+function drawSparkline(id, data) {
+    const canvas = document.getElementById(id);
+    if (!canvas || !data || data.length === 0) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    const max = Math.max(...data, 1);
+    ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = '#3498db';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    data.forEach((v, i) => {
+        const x = (i / (data.length - 1)) * w;
+        const y = h - (v / max) * (h - 4) - 2;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+}
+</script>
+{% endblock %}

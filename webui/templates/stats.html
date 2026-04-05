@@ -1,78 +1,50 @@
 {% extends "base.html" %}
-{% block title %}Статистика - MTProtoSERVER{% endblock %}
+{% block title %}Statistics - MTProtoSERVER{% endblock %}
 {% block content %}
 <div class="page-header">
-    <h2>📈 Статистика и логи</h2>
-    <p>Детальная статистика использования</p>
+    <h2>📈 Statistics</h2>
+    <p>Detailed traffic and connection analytics</p>
 </div>
 
 <div class="stats-grid">
     <div class="stat-card">
-        <div class="stat-icon">🌐</div>
-        <div class="stat-info">
-            <h3>{{ proxies | length }}</h3>
-            <p>Прокси серверов</p>
-        </div>
+        <div class="stat-icon">👥</div>
+        <div class="stat-info"><h3>{{ clients | length }}</h3><p>Total clients</p></div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon">👥</div>
-        <div class="stat-info">
-            <h3>{{ users | length }}</h3>
-            <p>Пользователей</p>
-        </div>
+        <div class="stat-icon">✅</div>
+        <div class="stat-info"><h3>{{ clients | selectattr('enabled') | list | length }}</h3><p>Active</p></div>
     </div>
     <div class="stat-card">
         <div class="stat-icon">🖥️</div>
-        <div class="stat-info">
-            <h3>{{ system.cpu_percent }}%</h3>
-            <p>CPU</p>
-        </div>
+        <div class="stat-info"><h3>{{ system.cpu_percent }}%</h3><p>CPU</p></div>
     </div>
     <div class="stat-card">
         <div class="stat-icon">💾</div>
-        <div class="stat-info">
-            <h3>{{ system.memory_percent }}%</h3>
-            <p>RAM</p>
-        </div>
+        <div class="stat-info"><h3>{{ system.memory_percent }}%</h3><p>RAM</p></div>
     </div>
 </div>
 
 <div class="section">
-    <h3>📊 Трафик по пользователям</h3>
-    <div class="chart-container">
-        <canvas id="trafficChart"></canvas>
-    </div>
+    <h3>📊 Traffic by Client</h3>
+    <div class="chart-container"><canvas id="trafficChart"></canvas></div>
 </div>
 
 <div class="section">
-    <h3>📋 Детализация по пользователям</h3>
+    <h3>📋 Client Details</h3>
     <div class="table-container">
         <table class="table">
-            <thead>
-                <tr>
-                    <th>Пользователь</th>
-                    <th>Прокси</th>
-                    <th>Статус</th>
-                    <th>Создан</th>
-                </tr>
-            </thead>
+            <thead><tr><th>Client</th><th>Status</th><th>RX</th><th>TX</th><th>Total</th><th>IPs</th><th>Created</th></tr></thead>
             <tbody>
-                {% for user in users %}
+                {% for c in clients %}
                 <tr>
-                    <td><strong>{{ user.label }}</strong></td>
-                    <td>
-                        {% for proxy in proxies %}
-                        {% if proxy.id == user.proxy_id %}{{ proxy.label }}{% endif %}
-                        {% endfor %}
-                    </td>
-                    <td>
-                        {% if user.enabled %}
-                        <span class="badge badge-success">Активен</span>
-                        {% else %}
-                        <span class="badge badge-danger">Отключён</span>
-                        {% endif %}
-                    </td>
-                    <td>{{ user.created_at }}</td>
+                    <td><strong>{{ c.label }}</strong></td>
+                    <td>{% if c.enabled %}<span class="badge badge-success">Active</span>{% else %}<span class="badge badge-danger">Disabled</span>{% endif %}</td>
+                    <td>{{ c.rx_bytes | default(0) | filesizeformat }}</td>
+                    <td>{{ c.tx_bytes | default(0) | filesizeformat }}</td>
+                    <td><strong>{{ (c.rx_bytes | default(0) + c.tx_bytes | default(0)) | filesizeformat }}</strong></td>
+                    <td>{{ c.unique_ips | default(0) }}</td>
+                    <td>{{ c.created_at }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -81,28 +53,16 @@
 </div>
 
 <div class="section">
-    <h3>🖥️ Ресурсы сервера</h3>
+    <h3>🖥️ Server Resources</h3>
     <div class="system-info">
         <div class="info-row">
-            <span>CPU:</span>
-            <div class="progress-bar">
-                <div class="progress-fill" style="width: {{ system.cpu_percent }}%"></div>
-            </div>
-            <span>{{ system.cpu_percent }}%</span>
+            <span>CPU:</span><div class="progress-bar"><div class="progress-fill" style="width: {{ system.cpu_percent }}%"></div></div><span>{{ system.cpu_percent }}%</span>
         </div>
         <div class="info-row">
-            <span>RAM:</span>
-            <div class="progress-bar">
-                <div class="progress-fill" style="width: {{ system.memory_percent }}%"></div>
-            </div>
-            <span>{{ system.memory_used_gb }}/{{ system.memory_total_gb }} GB</span>
+            <span>RAM:</span><div class="progress-bar"><div class="progress-fill" style="width: {{ system.memory_percent }}%"></div></div><span>{{ system.memory_used_gb }}/{{ system.memory_total_gb }} GB</span>
         </div>
         <div class="info-row">
-            <span>Диск:</span>
-            <div class="progress-bar">
-                <div class="progress-fill" style="width: {{ system.disk_percent }}%"></div>
-            </div>
-            <span>{{ system.disk_used_gb }}/{{ system.disk_total_gb }} GB</span>
+            <span>Disk:</span><div class="progress-bar"><div class="progress-fill" style="width: {{ system.disk_percent }}%"></div></div><span>{{ system.disk_used_gb }}/{{ system.disk_total_gb }} GB</span>
         </div>
     </div>
 </div>
@@ -111,25 +71,14 @@
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-const users = {{ users | tojson }};
-const labels = users.map(u => u.label);
-const trafficIn = users.map(u => u.traffic_in || 0);
-const trafficOut = users.map(u => u.traffic_out || 0);
-
+const clients = {{ clients | tojson }};
+const labels = clients.map(c => c.label);
+const rx = clients.map(c => c.rx_bytes || 0);
+const tx = clients.map(c => c.tx_bytes || 0);
 new Chart(document.getElementById('trafficChart'), {
     type: 'bar',
-    data: {
-        labels: labels,
-        datasets: [
-            { label: 'Трафик IN', data: trafficIn, backgroundColor: 'rgba(52, 152, 219, 0.7)' },
-            { label: 'Трафик OUT', data: trafficOut, backgroundColor: 'rgba(46, 204, 113, 0.7)' }
-        ]
-    },
-    options: {
-        responsive: true,
-        plugins: { legend: { position: 'top' } },
-        scales: { y: { beginAtZero: true } }
-    }
+    data: { labels, datasets: [{ label: 'RX', data: rx, backgroundColor: 'rgba(52,152,219,0.7)' }, { label: 'TX', data: tx, backgroundColor: 'rgba(46,204,113,0.7)' }] },
+    options: { responsive: true, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true } } }
 });
 </script>
 {% endblock %}

@@ -1,498 +1,425 @@
-# MTProtoSERVER — Полный комбайн MTProto прокси
+# MTProtoSERVER — MTProto Proxy Control Panel & Management Platform
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.2.0-brightgreen)
+![Version](https://img.shields.io/badge/version-2.0.0-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Docker](https://img.shields.io/badge/docker-✅-blue)
 ![FakeTLS](https://img.shields.io/badge/FakeTLS-✅-orange)
+![Multi-Node](https://img.shields.io/badge/multi--node-✅-purple)
+![2FA](https://img.shields.io/badge/2FA-TOTP-red)
 ![Platform](https://img.shields.io/badge/platform-Linux-lightgrey)
 
-**Полноценный MTProto прокси сервер с обходом блокировок РФ**
+**Full-featured MTProto proxy management platform with multi-node support, real-time monitoring, and client lifecycle management**
 
-[Установка](#-быстрая-установка) • [Возможности](#-возможности) • [Документация](#-документация) • [FAQ](#-faq)
+[Quick Install](#-quick-install) • [Features](#-features) • [Architecture](#-architecture) • [API](#-api) • [FAQ](#-faq)
 
 </div>
 
 ---
 
-## 📋 Оглавление
+## 📋 Table of Contents
 
-- [Описание](#-описание)
-- [Возможности](#-возможности)
-- [Архитектура](#-архитектура)
-- [Быстрая установка](#-быстрая-установка)
-- [Пошаговая установка](#-пошаговая-установка-подробно)
-- [Управление](#-управление)
+- [Overview](#-overview)
+- [Features](#-features)
+- [Architecture](#-architecture)
+- [Quick Install](#-quick-install)
+- [Step-by-Step Install](#-step-by-step-install)
+- [MTG Agent](#-mtg-agent)
 - [Web UI](#-web-ui)
 - [Telegram Bot](#-telegram-bot)
-- [Команды](#-полезные-команды)
-- [Безопасность](#-безопасность)
-- [Устранение проблем](#-устранение-проблем)
+- [API Reference](#-api-reference)
+- [Security](#-security)
+- [Troubleshooting](#-troubleshooting)
 - [FAQ](#-faq)
-- [Удаление](#-удаление)
+- [Uninstall](#-uninstall)
 
 ---
 
-## 📖 Описание
+## 📖 Overview
 
-**MTProtoSERVER** — это полноценный комбайн для развёртывания MTProto прокси с обходом блокировок. Работает на базе **telemt** (Rust/Tokio) — самого современного и быстрого движка MTProto на 2026 год.
+**MTProtoSERVER** is a complete platform for deploying and managing MTProto proxy servers with bypass capabilities for Russia and other restricted regions. Built on **mtg v2** — the most modern MTProto engine.
 
-### Ключевые особенности:
+### Key Features:
 
-- 🛡️ **FakeTLS маскировка** — трафик неотличим от обычного HTTPS
-- 🇷🇺 **Работает в РФ** — обход DPI и блокировок
-- 👥 **Мульти-пользователь** — отдельные ссылки для каждого
-- 🌐 **Web панель** — управление через браузер
-- 🤖 **Telegram бот** — управление из мессенджера
-- 📊 **Статистика** — графики и мониторинг
-- 🔄 **Авто-лечение** — перезапуск при падении
-- 💾 **Бэкапы** — автоматическое резервное копирование
-- 🧦 **SOCKS5** — универсальный прокси (Dante)
-- 🌐 **HTTP/HTTPS** — прокси для браузера (Squid)
-- 💰 **Ad-Tag** — монетизация через Telegram
-- 🌍 **GeoIP** — блокировка стран
-- 📋 **Логи** — история подключений
-- 🔄 **Ротация домена** — смена домена из Web UI
-- 🚀 **Speedtest** — тест скорости из панели
-- 🔔 **Webhook** — уведомления в Discord/Slack
-- 💾 **Бэкап/Восстановление** — из Web UI
-- 🔍 **Health Check** — проверка системы из Web UI
-
----
-
-## ⭐ Возможности
-
-### 🛡️ Обход блокировок
-| Функция | Описание |
-|---------|----------|
-| **FakeTLS** | Маскировка под HTTPS к легитимным доменам (cloudflare.com, 1c.ru, и др.) |
-| **Мульти-прокси** | Создание нескольких прокси на разных портах с разными доменами |
-| **Авто-ротация домена** | Автоматическая смена домена при обнаружении блокировки |
-| **Порт 443** | Стандартный HTTPS порт — не вызывает подозрений |
-| **DPI обход** | Невидим для систем глубокой инспекции пакетов |
-
-### 👥 Управление пользователями
-| Функция | Описание |
-|---------|----------|
-| **Мульти-секреты** | Каждый пользователь получает уникальную ссылку |
-| **Выбор прокси** | Привязка пользователя к конкретному прокси серверу |
-| **Лимит подключений** | Ограничение одновременных подключений на пользователя |
-| **Лимит IP** | Ограничение по уникальным IP-адресам |
-| **Квота трафика** | Лимит объёма данных на пользователя |
-| **Срок действия** | Автоматическое отключение по дате |
-| **QR-коды** | Генерация QR для быстрого подключения |
-| **Вкл/Выкл** | Временная блокировка без удаления |
-
-### 🌐 Web UI
-| Функция | Описание |
-|---------|----------|
-| **Дашборд** | Обзор состояния прокси, Docker контейнеры, ресурсы |
-| **Управление пользователями** | Добавление, удаление, блокировка |
-| **Прокси серверы** | Создание, ротация секрета, вкл/выкл |
-| **SOCKS5** | Управление SOCKS5 пользователями |
-| **HTTP/HTTPS** | Информация о HTTP прокси |
-| **Статистика** | Графики трафика по пользователям |
-| **Логи** | Просмотр логов контейнеров в реальном времени |
-| **Бэкап** | Создание, восстановление, удаление бэкапов |
-| **Настройки** | Ad-Tag, ротация домена, webhook, speedtest |
-| **Диагностика** | Health check, логи контейнеров |
-| **Тёмная/Светлая тема** | Переключение оформления |
-| **Мобильная адаптация** | Работает на телефонах |
-
-### 🤖 Telegram Bot
-| Команда | Описание |
-|---------|----------|
-| `/start` | Главное меню с inline кнопками |
-| 📊 Статус | Информация о прокси |
-| 👥 Пользователи | Список и управление |
-| ➕ Добавить | Создание нового пользователя |
-| 📈 Статистика | Общая статистика |
-| 🔗 Ссылка | QR-код и ссылка прокси |
-| 🔧 Диагностика | Проверка состояния |
-
-### 🔄 Автоматизация
-| Функция | Описание |
-|---------|----------|
-| **Auto-Heal** | Автоперезапуск упавших контейнеров (каждые 5 мин) |
-| **Auto-Update** | Автоматическое обновление образов |
-| **Backup** | Ежедневное резервное копирование |
-| **Мониторинг** | Проверка доступности прокси каждые 5 мин |
-| **Алерты** | Уведомления в Telegram при проблемах |
-
-### 🛡️ Безопасность
-| Функция | Описание |
-|---------|----------|
-| **GeoIP фильтрация** | Блокировка/разрешение стран |
-| **Rate Limiting** | Защита от злоупотребления |
-| **IP Whitelist/Blacklist** | Ручное управление доступом |
-| **Авто-бэкап** | Резервное копирование конфигов |
-
-### 🧦 SOCKS5 прокси
-| Функция | Описание |
-|---------|----------|
-| **Dante SOCKS5** | Универсальный прокси для любых приложений |
-| **Мульти-юзеры** | Несколько пользователей с разными логинами/паролями |
-| **Аутентификация** | Логин/пароль для каждого SOCKS5 пользователя |
-| **Любые приложения** | Браузер, Telegram, curl, системный прокси |
-
-### 🌐 HTTP/HTTPS прокси
-| Функция | Описание |
-|---------|----------|
-| **Squid** | Самый популярный HTTP прокси сервер |
-| **Кэширование** | Ускорение загрузки за счёт кэша |
-| **Аутентификация** | Basic auth (логин/пароль) |
-| **HTTPS поддержка** | Проксирование HTTPS трафика |
-
-### 💰 Монетизация и уведомления
-| Функция | Описание |
-|---------|----------|
-| **Ad-Tag** | Встроенная реклама от Telegram (@MTProxyBot) |
-| **Управление из Web UI** | Установка и смена Ad-Tag из панели |
-| **Webhook уведомления** | Алерты в Discord, Slack, любой webhook URL |
-| **Тест webhook** | Проверка работоспособности из Web UI |
-
-### 🌍 GeoIP и безопасность
-| Функция | Описание |
-|---------|----------|
-| **GeoIP блокировка** | Блокировка стран при установке |
-| **Rate Limiting** | Защита от злоупотребления |
-| **Ротация домена** | Смена домена маскировки из Web UI |
-
-### 🛠️ Диагностика и обслуживание
-| Функция | Описание |
-|---------|----------|
-| **Speedtest** | Тест скорости (download/upload/ping) из Web UI |
-| **Health Check** | Полная проверка системы одной кнопкой |
-| **Бэкап/Восстановление** | Создание и восстановление из Web UI |
-| **Логи** | Просмотр логов контейнеров в реальном времени |
-| **QR-коды** | Генерация QR для ссылок прокси |
+- 🛡️ **FakeTLS cloaking** — traffic indistinguish from regular HTTPS
+- 🇷🇺 **Works in Russia** — bypasses DPI and blocking
+- 🖥️ **Multi-node** — manage proxy servers across multiple machines
+- 👥 **Client management** — per-client links with limits and auto-stop
+- 📊 **Real-time monitoring** — traffic, connections, 24h sparkline charts
+- 🌐 **Web UI** — full management dashboard
+- 🤖 **Telegram bot** — manage from messenger
+- 🔒 **2FA (TOTP)** — Google Authenticator, Aegis, Authy
+- 🧦 **SOCKS5** — universal proxy (Dante)
+- 🌐 **HTTP/HTTPS** — proxy for browsers (Squid)
+- 💰 **Ad-Tag** — monetization via Telegram
+- 💾 **Backup/Restore** — from Web UI
+- 🌍 **GeoIP** — country blocking
+- 🚀 **Speedtest** — from Web UI
+- 🔔 **Webhooks** — Discord, Slack notifications
+- 🌐 **i18n** — Russian & English
+- 🖼️ **Custom logo** — upload your own
 
 ---
 
-## 🏗️ Архитектура
+## ⭐ Features
+
+### 🖥️ Node Management
+| Feature | Description |
+|---------|-------------|
+| **Add/Edit/Delete nodes** | Manage multiple proxy servers |
+| **SSH connection** | By password or private key |
+| **Country flags** | Visual navigation |
+| **Ping & status check** | Test connectivity from UI |
+| **Agent sync** | Sync clients from remote nodes |
+
+### 👥 Client Management
+| Feature | Description |
+|---------|-------------|
+| **Auto port & secret** | Automatically assigned on creation |
+| **Start/Stop** | Individual client control |
+| **QR codes & links** | Quick connection via Telegram |
+| **Sync from nodes** | Pull existing clients from remote nodes |
+| **Mass view** | See all clients across all nodes |
+| **Secret rotation** | Generate new secret, old links die |
+| **Traffic reset** | Manual reset per client |
+
+### 📊 Real-time Monitoring
+| Feature | Description |
+|---------|-------------|
+| **RX/TX traffic** | Current period and lifetime |
+| **Unique IPs** | Active connections count |
+| **24h sparkline** | Connection chart in table |
+| **Online cache** | <5ms response from cache |
+| **Server resources** | CPU, RAM, Disk usage |
+
+### 🎯 Limits & Automation
+| Feature | Description |
+|---------|-------------|
+| **Traffic limit (GB)** | Auto-stop when exceeded |
+| **Device limit** | Auto-stop on unique IP threshold |
+| **Expiry date** | Auto-stop after date |
+| **Auto-reset traffic** | Daily / Monthly / Yearly schedule |
+
+### 🔒 Security
+| Feature | Description |
+|---------|-------------|
+| **Token auth** | API and UI authentication |
+| **TOTP 2FA** | Google Authenticator, Aegis, Authy |
+| **IP Blacklist/Whitelist** | Per-IP access control |
+| **Firewall management** | Open/close ports from UI |
+| **Rate limiting** | Configurable request limits |
+
+### 🌐 Interface
+| Feature | Description |
+|---------|-------------|
+| **Dark/Light theme** | Toggle with persistence |
+| **RU/EN languages** | Two languages with toggle |
+| **Custom logo** | Upload your own logo |
+| **Responsive design** | Works on mobile devices |
+
+### 🧦 SOCKS5 Proxy
+| Feature | Description |
+|---------|-------------|
+| **Dante SOCKS5** | Universal proxy for any app |
+| **Multi-user** | Multiple users with different credentials |
+| **Authentication** | Login/password per user |
+
+### 🌐 HTTP/HTTPS Proxy
+| Feature | Description |
+|---------|-------------|
+| **Squid** | Most popular HTTP proxy server |
+| **Caching** | Speed up via cache |
+| **Basic auth** | Username/password authentication |
+
+### 💰 Monetization & Notifications
+| Feature | Description |
+|---------|-------------|
+| **Ad-Tag** | Built-in Telegram ads (@MTProxyBot) |
+| **Web UI management** | Set/change Ad-Tag from panel |
+| **Webhook alerts** | Discord, Slack, any webhook URL |
+| **Webhook test** | Verify from Web UI |
+
+### 🛠️ Diagnostics & Maintenance
+| Feature | Description |
+|---------|-------------|
+| **Speedtest** | Download/upload/ping from Web UI |
+| **Health check** | Full system check with one click |
+| **Backup/Restore** | Create and restore from Web UI |
+| **Logs** | View container logs in real-time |
+| **QR codes** | Generate QR for proxy links |
+| **Config export** | Download all configs as ZIP |
+
+---
+
+## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────────────┐
-│                  Ваш VPS сервер                  │
-│                                                   │
-│  ┌───────────────────────────────────────────┐  │
-│  │         Docker Compose                     │  │
-│  │                                            │  │
-│  │  ┌─────────────┐  ┌──────────┐  ┌───────┐ │  │
-│  │  │   MTProxy    │  │  Web UI  │  │  Bot  │ │  │
-│  │  │  (telemt)   │  │ (FastAPI)│  │ (PTB) │ │  │
-│  │  │  Port 443   │  │Port 8080 │  │       │ │  │
-│  │  └──────┬──────┘  └────┬─────┘  └───┬───┘ │  │
-│  │         │              │             │      │  │
-│  │  ┌──────┴──────────────┴─────────────┴───┐ │  │
-│  │  │         Docker Network                 │ │  │
-│  │  └────────────────────────────────────────┘ │  │
-│  └───────────────────────────────────────────┘  │
-│                                                   │
-│  ┌───────────────────────────────────────────┐  │
-│  │  /opt/mtprotoserver/                       │  │
-│  │  ├── config/     (настройки)               │  │
-│  │  ├── data/       (пользователи, статистика)│  │
-│  │  ├── scripts/    (auto-heal, backup...)    │  │
-│  │  └── docker-compose.yml                    │  │
-│  └───────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────┘
-           │                        │
-           ▼                        ▼
-    Telegram DC           Telegram клиенты
-   (Amsterdam)          (через FakeTLS)
+┌─────────────────────────────────────────────────────────────┐
+│                    Control Panel (Web UI)                     │
+│  FastAPI + Jinja2 + Chart.js                                  │
+│  ┌─────────┐ ┌──────────┐ ┌────────┐ ┌──────────┐           │
+│  │Dashboard│ │ Clients  │ │ Nodes  │ │ Settings │           │
+│  └─────────┘ └──────────┘ └────────┘ └──────────┘           │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+        ┌──────────────────┼──────────────────┐
+        │                  │                  │
+   ┌────▼────┐       ┌────▼────┐       ┌────▼────┐
+   │ Node 1  │       │ Node 2  │       │ Node N  │
+   │ (Local) │       │ Remote  │       │ Remote  │
+   │         │       │         │       │         │
+   │ ┌─────┐ │       │ ┌─────┐ │       │ ┌─────┐ │
+   │ │MTG  │ │       │ │MTG  │ │       │ │MTG  │ │
+   │ │Proxy│ │       │ │Proxy│ │       │ │Proxy│ │
+   │ └─────┘ │       │ └─────┘ │       │ └─────┘ │
+   │ ┌─────┐ │       │ ┌─────┐ │       │ ┌─────┐ │
+   │ │Agent│ │◄──────│ │Agent│ │◄──────│ │Agent│ │
+   │ │:9876│ │ HTTP  │ │:9876│ │ HTTP  │ │:9876│ │
+   │ └─────┘ │       │ └─────┘ │       │ └─────┘ │
+   └─────────┘       └─────────┘       └─────────┘
 ```
+
+### Components
+
+| Component | Description |
+|-----------|-------------|
+| **Web UI** | FastAPI dashboard with Jinja2 templates |
+| **MTG Proxy** | nineseconds/mtg:2 — MTProto engine with FakeTLS |
+| **MTG Agent** | FastAPI HTTP agent on each node for monitoring |
+| **Telegram Bot** | python-telegram-bot for remote management |
+| **SOCKS5** | Dante — universal SOCKS5 proxy |
+| **HTTP Proxy** | Squid — HTTP/HTTPS proxy with caching |
 
 ---
 
-## 🚀 Быстрая установка
+## 🚀 Quick Install
 
 ```bash
 sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/Therealwh/MTProtoSERVER/main/install.sh)"
 ```
 
-> ⚠️ **Требования:** Linux (Ubuntu/Debian/CentOS), root доступ, открытый порт 443
+> ⚠️ **Requirements:** Linux (Ubuntu/Debian/CentOS), root access, open port 443
 
 ---
 
-## 📖 Пошаговая установка (подробно)
+## 📖 Step-by-Step Install
 
-### Шаг 1: Подготовка сервера
-
-**Рекомендуемые VPS провайдеры:**
-- 🇷🇺 Для пользователей из РФ: VPS внутри России (меньше фильтрация)
-- 🌍 Для остальных: любой зарубежный VPS
-
-**Минимальные требования:**
-- CPU: 1 ядро
-- RAM: 512 MB
-- Диск: 5 GB
-- ОС: Ubuntu 20.04+ / Debian 11+ / CentOS 8+
+### 1. Prepare Server
 
 ```bash
-# Обновление системы
 sudo apt update && sudo apt upgrade -y
-
-# Скачивание установщика
-curl -fsSL https://raw.githubusercontent.com/Therealwh/MTProtoSERVER/main/install.sh -o install.sh
-chmod +x install.sh
 ```
 
-### Шаг 2: Запуск установщика
+### 2. Run Installer
 
 ```bash
-sudo bash install.sh
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/Therealwh/MTProtoSERVER/main/install.sh)"
 ```
 
-Установщик задаст вопросы:
+The installer will guide you through:
 
-1. **Количество прокси** — сколько прокси серверов создать (1-10):
-   - Каждый прокси будет на своём порту
-   - Каждый прокси может иметь свой домен маскировки
-   - Если один домен заблокируют — другие продолжат работать
+1. **System check** — OS detection, dependencies
+2. **Docker install** — automatic if not present
+3. **MTProto proxies** — how many, ports, domains (1-10 proxies)
+4. **Telegram bot** — optional, auto-detects admin Chat ID
+5. **SOCKS5 proxy** — optional, with auth
+6. **HTTP/HTTPS proxy** — optional, Squid with auth
+7. **Ad-Tag** — optional, monetization
+8. **GeoIP blocking** — optional, country codes
+9. **Webhook notifications** — optional, Discord/Slack
+10. **Start** — launches everything
 
-2. **Для каждого прокси:**
-   - Метка (например: main, backup, friends)
-   - Домен маскировки (cloudflare.com, 1c.ru, sberbank.ru и др.)
-   - Порт (по умолчанию 443, 444, 445...)
+### 3. Access Web UI
 
-3. **Порт Web UI** — по умолчанию `8080`
+After installation, open: `http://YOUR_IP:8080`
 
-4. **Telegram бот** — хотите ли установить бота:
-   - Введите `y` для установки
-   - Укажите токен от @BotFather
-   - Укажите Chat ID для уведомлений (опционально)
+### 4. Install MTG Agent on Remote Nodes
 
-### Шаг 3: Получение токена бота (опционально)
+On each remote server:
 
-Если вы выбрали установку бота:
-
-1. Откройте **@BotFather** в Telegram
-2. Отправьте `/newbot`
-3. Введите имя бота (например, `My MTProto Manager`)
-4. Введите username бота (должен заканчиваться на `bot`, например `my_mtproto_bot`)
-5. Скопируйте полученный токен (вида `123456789:ABCdef...`)
-
-### Шаг 4: Подключение к прокси
-
-После установки вы получите ссылку вида:
-```
-tg://proxy?server=1.2.3.4&port=443&secret=ee...
+```bash
+curl -fsSL https://raw.githubusercontent.com/Therealwh/MTProtoSERVER/main/agent/install.sh | bash -s -- --port 9876 --token YOUR_SECRET_TOKEN
 ```
 
-**Как подключить:**
-1. Откройте Telegram
-2. Настройки → Данные и память → Использовать прокси
-3. Вставьте ссылку или отсканируйте QR-код
-4. Готово!
+Then add the node in the Web UI → Nodes page.
 
 ---
 
-## 🎛️ Управление
+## 🤖 MTG Agent
 
-### Web Панель
+The MTG Agent is a lightweight FastAPI HTTP service installed on each proxy node. It provides:
 
-Откройте в браузере: `http://ВАШ_IP:8080`
+- **Real-time client data** — traffic, unique IPs, status
+- **24h connection history** — sparkline charts
+- **Client lifecycle** — create, start, stop, restart, delete
+- **System monitoring** — CPU, RAM, disk
+- **Caching** — <5ms responses from 30s cache
 
-**Разделы:**
-- 📊 **Дашборд** — обзор, быстрые действия
-- 👥 **Пользователи** — управление доступом
-- 📈 **Статистика** — графики трафика
-- ⚙️ **Настройки** — конфигурация
-- 🔧 **Диагностика** — проверка системы
+### Agent API
 
-### Telegram Bot
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check |
+| `/clients` | GET | List all MTG clients with stats |
+| `/clients/{label}/history` | GET | 24h connection history |
+| `/clients/{label}/start` | POST | Start a client |
+| `/clients/{label}/stop` | POST | Stop a client |
+| `/clients/{label}/restart` | POST | Restart a client |
+| `/clients/create` | POST | Create new MTG client |
+| `/clients/{label}` | DELETE | Delete a client |
+| `/system` | GET | System resources |
 
-Откройте вашего бота в Telegram и используйте inline меню:
-- 📊 Статус прокси
-- 👥 Список пользователей
-- ➕ Добавить пользователя
-- 📈 Статистика
-- 🔗 Ссылка с QR-кодом
-- 🔧 Диагностика
+All endpoints require `x-token` header.
 
 ---
 
-## 💻 Полезные команды
+## 🎛️ Web UI
+
+### Pages
+
+| Page | Description |
+|------|-------------|
+| **Dashboard** | Overview, Docker containers, resources, quick actions |
+| **Clients** | Add/manage clients with limits, QR codes, sparklines |
+| **Nodes** | Add/manage nodes, ping test, sync, agent install |
+| **Statistics** | Traffic charts, client details, system resources |
+| **SOCKS5** | SOCKS5 proxy info and user management |
+| **HTTP/HTTPS** | HTTP proxy info and usage instructions |
+| **Logs** | Container logs in real-time |
+| **Backup** | Create, restore, delete backups |
+| **Security** | IP blacklist/whitelist, firewall, rate limiting, export |
+| **Settings** | Auth token, 2FA, logo, Ad-Tag, domain rotation, webhook, speedtest |
+
+---
+
+## 🤖 Telegram Bot
+
+Commands available through inline menu:
+
+| Command | Description |
+|---------|-------------|
+| `/start` | Main menu with inline buttons |
+| 📊 Status | Proxy info and stats |
+| 🌐 Proxies | List all proxy servers |
+| 👥 Users | List and manage users |
+| ➕ Add User | Create new user with proxy selection |
+| 📈 Statistics | Overall traffic stats |
+| 🔧 Diagnostics | System health check |
+
+---
+
+## 📡 API Reference
+
+### Authentication
 
 ```bash
-# Перейти в каталог установки
-cd /opt/mtprotoserver
-
-# Просмотр статуса контейнеров
-docker compose ps
-
-# Просмотр логов
-docker compose logs -f
-
-# Перезапуск
-docker compose restart
-
-# Остановка
-docker compose down
-
-# Обновление
-docker compose pull && docker compose up -d
-
-# Добавить новый прокси (интерактивно)
-bash /opt/mtprotoserver/scripts/add-proxy.sh
-
-# Удалить прокси
-bash /opt/mtprotoserver/scripts/remove-proxy.sh <label>
-
-# Health Check
-bash /opt/mtprotoserver/scripts/health-check.sh
-
-# Speedtest
-bash /opt/mtprotoserver/scripts/speedtest.sh
-
-# Бэкап
-bash /opt/mtprotoserver/scripts/backup.sh
-
-# Авто-ротация домена
-bash /opt/mtprotoserver/scripts/rotate-domain.sh
-
-# Мониторинг
-bash /opt/mtprotoserver/scripts/monitor.sh
+curl -H "x-token: YOUR_TOKEN" https://your-server/api/status
 ```
 
+### Key Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/status` | GET | System status |
+| `/api/clients/add` | POST | Add new client |
+| `/api/clients/{id}/toggle` | POST | Enable/disable client |
+| `/api/clients/{id}/delete` | POST | Delete client |
+| `/api/clients/{id}/rotate` | POST | Rotate client secret |
+| `/api/clients/{id}/reset-traffic` | POST | Reset traffic counters |
+| `/api/nodes/add` | POST | Add new node |
+| `/api/nodes/{id}/ping` | POST | Ping node |
+| `/api/nodes/{id}/sync` | POST | Sync clients from node |
+| `/api/system/backup` | POST | Create backup |
+| `/api/system/restore` | POST | Restore from backup |
+| `/api/system/health` | GET | Health check |
+| `/api/system/speedtest` | GET | Speed test |
+| `/api/qr?text=...` | GET | Generate QR code |
+| `/api/metrics` | GET | Prometheus metrics |
+
 ---
 
-## 🛡️ Безопасность
+## 🛡️ Security
 
-### Рекомендации
+### Recommendations
 
-1. **Не публикуйте ссылку на прокси** — она персональная
-2. **Используйте сложный домен маскировки** — cloudflare.com, sberbank.ru
-3. **Откройте только порт 443** в файрволе
-4. **Регулярно обновляйте** — `docker compose pull && docker compose up -d`
-5. **Включите бэкапы** — работают автоматически
-6. **Используйте лимиты** — ограничьте пользователей по подключениям и трафику
+1. **Enable 2FA** — Settings → Two-Factor Authentication
+2. **Change default token** — Settings → Authentication
+3. **Use strong agent tokens** — Different token per node
+4. **Open only required ports** — 443 for proxy, 8080 for Web UI
+5. **Enable GeoIP blocking** — Block unwanted countries
+6. **Regular backups** — Use the Backup page
 
-### Файрвол (UFW)
+### Firewall (UFW)
 
 ```bash
-sudo ufw allow 443/tcp
-sudo ufw allow 8080/tcp  # Web UI (опционально, ограничьте по IP)
+sudo ufw allow 443/tcp    # MTProto proxy
+sudo ufw allow 8080/tcp   # Web UI (restrict by IP)
+sudo ufw allow 1080/tcp   # SOCKS5 (if enabled)
+sudo ufw allow 3128/tcp   # HTTP proxy (if enabled)
 sudo ufw enable
 ```
 
-### Файрвол (iptables)
-
-```bash
-sudo iptables -A INPUT -p tcp --dport 443 -j ACCEPT
-sudo iptables -A INPUT -p tcp --dport 8080 -j ACCEPT
-```
-
 ---
 
-## 🔧 Устранение проблем
+## 🔧 Troubleshooting
 
-### Прокси не подключается
+### Proxy not connecting
 
-1. **Проверьте контейнеры:**
-   ```bash
-   docker compose ps
-   ```
+1. Check containers: `docker compose ps`
+2. Check port 443: `ss -tlnp | grep 443`
+3. Check firewall: `sudo ufw status`
+4. Check logs: `docker compose logs mtproto-proxy`
 
-2. **Проверьте порт 443:**
-   ```bash
-   ss -tlnp | grep 443
-   ```
+### Web UI not loading
 
-3. **Проверьте файрвол:**
-   ```bash
-   sudo ufw status
-   ```
+1. Check container: `docker compose ps mtproto-webui`
+2. Check port: `ss -tlnp | grep 8080`
+3. Open port: `sudo ufw allow 8080/tcp`
 
-4. **Проверьте IP в ссылке:**
-   ```bash
-   curl -s ifconfig.me
-   ```
-   IP должен совпадать с тем, что в ссылке прокси.
+### Agent not responding
 
-5. **Проверьте логи:**
-   ```bash
-   docker compose logs mtproto-proxy
-   ```
-
-### Web UI не открывается
-
-1. Проверьте что контейнер запущен:
-   ```bash
-   docker compose ps mtproto-webui
-   ```
-
-2. Проверьте порт:
-   ```bash
-   ss -tlnp | grep 8080
-   ```
-
-3. Откройте порт в файрволе:
-   ```bash
-   sudo ufw allow 8080/tcp
-   ```
-
-### Бот не отвечает
-
-1. Проверьте токен в `config/settings.json`
-2. Проверьте логи:
-   ```bash
-   docker compose logs mtproto-bot
-   ```
-3. Перезапустите бота:
-   ```bash
-   docker compose restart mtproto-bot
-   ```
+1. Check agent: `curl http://NODE_IP:9876/health`
+2. Check token: Ensure token matches in both panel and agent
+3. Restart agent: `cd /opt/mtg-agent && docker compose restart`
 
 ### Health Check
 
-Запустите полную диагностику:
 ```bash
-bash /opt/mtprotoserver/scripts/health-check.sh
+curl http://YOUR_IP:8080/api/system/health
 ```
 
 ---
 
 ## ❓ FAQ
 
-### Q: Это легально?
-A: MTProto — официальный протокол прокси от Telegram. Использование прокси для доступа к легальным ресурсам не запрещено.
+### Q: How many clients can I create?
+A: Limited by server resources. On a minimal VPS (1 core, 512MB RAM) — up to 100 clients.
 
-### Q: Какой VPS выбрать?
-A: Для пользователей из РФ рекомендуется VPS внутри России (меньше фильтрация на границе сети). Для остальных — любой зарубежный VPS.
+### Q: How do I add a client?
+A: Web UI → Clients → Add Client form, or via API `/api/clients/add`.
 
-### Q: Сколько пользователей поддерживает?
-A: Зависит от ресурсов сервера. На минимальном VPS (1 ядро, 512MB RAM) — до 100 пользователей.
+### Q: How do I add a remote node?
+A: Install the agent on the remote server, then add it in Web UI → Nodes.
 
-### Q: Как добавить пользователя?
-A: Через Web UI (`/users`), Telegram бота (➕ Добавить пользователя), или вручную в `data/users.json`.
+### Q: How do I change the masking domain?
+A: Settings → Domain Rotation, or run `bash /opt/mtprotoserver/scripts/rotate-domain.sh`.
 
-### Q: Как сменить домен маскировки?
-A: Запустите `bash /opt/mtprotoserver/scripts/rotate-domain.sh` или измените вручную в `docker-compose.yml`.
-
-### Q: Прокси работает медленно?
-A: Проверьте скорость соединения: `bash /opt/mtprotoserver/scripts/speedtest.sh`. Возможно, стоит сменить VPS провайдера.
-
-### Q: Как добавить ещё один прокси?
-A: Через Web UI (раздел "Прокси" → "Добавить прокси") или командой: `bash /opt/mtprotoserver/scripts/add-proxy.sh`
-
-### Q: Зачем несколько прокси?
-A: Если один домен заблокируют — другие продолжат работать. Можно раздавать разные прокси разным группам пользователей.
-
-### Q: Как обновить?
+### Q: How do I update?
 A: `cd /opt/mtprotoserver && docker compose pull && docker compose up -d`
+
+### Q: Is this legal?
+A: MTProto is Telegram's official proxy protocol. Using proxies to access legal resources is not prohibited.
 
 ---
 
-## 🗑️ Удаление
+## 🗑️ Uninstall
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Therealwh/MTProtoSERVER/main/uninstall.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/Therealwh/MTProtoSERVER/main/uninstall.sh | sudo bash -s -- -y
 ```
 
-Или вручную:
+Or manually:
 ```bash
 cd /opt/mtprotoserver
 docker compose down
@@ -502,64 +429,74 @@ sudo rm -rf /opt/mtprotoserver
 
 ---
 
-## 📁 Структура проекта
+## 📁 Project Structure
 
 ```
 MTProtoSERVER/
-├── install.sh                    # Главный установщик
-├── uninstall.sh                  # Скрипт удаления
-├── README.md                     # Документация
+├── install.sh                    # Main installer (interactive)
+├── uninstall.sh                  # Uninstaller
+├── README.md                     # Documentation
 ├── .gitignore
 │
-├── mtproxy/
-│   └── config.toml               # Конфигурация прокси
-│
-├── webui/
+├── agent/                        # MTG Agent for remote nodes
 │   ├── Dockerfile
-│   ├── app.py                    # FastAPI приложение
+│   ├── agent.py                  # FastAPI agent for monitoring
 │   ├── requirements.txt
-│   ├── templates/                # HTML шаблоны
-│   │   ├── base.html
-│   │   ├── index.html            # Дашборд
-│   │   ├── users.html            # Пользователи
-│   │   ├── stats.html            # Статистика
-│   │   ├── settings.html         # Настройки
-│   │   └── diagnostics.html      # Диагностика
-│   └── static/
-│       ├── css/style.css         # Стили
-│       └── js/app.js             # JavaScript
+│   └── install.sh                # One-click agent installer
 │
-├── bot/
+├── webui/                        # Web Control Panel
 │   ├── Dockerfile
-│   ├── bot.py                    # Telegram бот
+│   ├── app.py                    # FastAPI application
+│   ├── requirements.txt
+│   ├── templates/                # Jinja2 HTML templates
+│   │   ├── base.html             # Base layout with sidebar
+│   │   ├── dashboard.html        # Main dashboard
+│   │   ├── clients.html          # Client management
+│   │   ├── nodes.html            # Node management
+│   │   ├── stats.html            # Statistics & charts
+│   │   ├── settings.html         # Settings & 2FA
+│   │   ├── security.html         # Security & firewall
+│   │   ├── logs.html             # Container logs
+│   │   ├── backup.html           # Backup & restore
+│   │   ├── socks5.html           # SOCKS5 management
+│   │   └── http_proxy.html       # HTTP proxy info
+│   └── static/
+│       ├── css/style.css         # Styles (dark/light theme)
+│       └── js/app.js             # JavaScript (i18n, theme)
+│
+├── bot/                          # Telegram Bot
+│   ├── Dockerfile
+│   ├── bot.py                    # Telegram bot
 │   └── requirements.txt
 │
-├── scripts/
-│   ├── auto-heal.sh              # Авто-лечение
-│   ├── auto-update.sh            # Авто-обновление
-│   ├── backup.sh                 # Бэкап
-│   ├── monitor.sh                # Мониторинг
-│   ├── rotate-domain.sh          # Ротация домена
-│   ├── health-check.sh           # Диагностика
-│   └── speedtest.sh              # Speedtest
+├── scripts/                      # Helper scripts
+│   ├── auto-heal.sh              # Auto-restart on failure
+│   ├── auto-update.sh            # Auto-update images
+│   ├── backup.sh                 # Config backup
+│   ├── monitor.sh                # Availability monitoring
+│   ├── rotate-domain.sh          # Domain rotation
+│   ├── health-check.sh           # System diagnostics
+│   ├── speedtest.sh              # Speed test
+│   ├── add-proxy.sh              # Add proxy interactively
+│   └── remove-proxy.sh           # Remove proxy by label
 │
-└── config/
-    ├── domains.txt               # Список доменов FakeTLS
-    └── geoblock.txt              # GeoIP список
+└── config/                       # Configuration files
+    ├── domains.txt               # FakeTLS domain list
+    └── geoblock.txt              # GeoIP blocklist
 ```
 
 ---
 
-## 📄 Лицензия
+## 📄 License
 
-MIT License — свободное использование с указанием авторства.
+MIT License — free to use with attribution.
 
 ---
 
 <div align="center">
 
-**MTProtoSERVER v1.0.0** | 2026
+**MTProtoSERVER v2.0.0** | 2026
 
-Сделано с ❤️ для свободного доступа к Telegram
+Made with ❤️ for free access to Telegram
 
 </div>
