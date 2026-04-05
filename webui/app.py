@@ -77,7 +77,7 @@ def fmt(b):
         b/=1024
     return f"{b:.1f} PB"
 
-def ctx(request): return {'settings':get_settings(),'has_logo':os.path.exists(LOGO_FILE),'lang':'ru','now':datetime.now().strftime('%Y-%m-%d')}
+def ctx(r): return {'settings':get_settings(),'has_logo':os.path.exists(LOGO_FILE),'lang':'ru','now':datetime.now().strftime('%Y-%m-%d'),'request':r}
 
 # AUTH
 PROTECTED = ['/clients','/nodes','/stats','/settings','/security','/logs','/backup','/socks5','/http-proxy','/mtproto']
