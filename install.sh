@@ -3,10 +3,12 @@ set -euo pipefail
 
 # ============================================================
 # MTProtoSERVER - Полный установщик MTProto прокси
-# Версия: 1.0.0
+# Версия: 1.1.0
 # Дата: 2026-04-05
-# Поддержка: FakeTLS, Multi-User, Web UI, Telegram Bot
+# Поддержка: FakeTLS, Multi-User, Multi-Proxy, Web UI, Telegram Bot
 # ============================================================
+
+REPO_URL="https://raw.githubusercontent.com/Therealwh/MTProtoSERVER/main"
 
 # Цвета
 RED='\033[0;31m'
@@ -66,7 +68,7 @@ print_header() {
     clear
     print_sep
     echo -e "${WHITE}${E_STAR}  MTProtoSERVER — Установщик MTProto Прокси${NC}"
-    echo -e "${CYAN}   Версия 1.0.0 | 2026 | FakeTLS + Web UI + Bot${NC}"
+    echo -e "${CYAN}   Версия 1.1.0 | 2026 | Multi-Proxy + FakeTLS + Web UI + Bot${NC}"
     print_sep
     echo ""
 }
@@ -106,19 +108,6 @@ get_server_ip() {
     else
         log_ok "Внешний IP: $SERVER_IP"
     fi
-}
-
-generate_secret() {
-    PROXY_SECRET=$(openssl rand -hex 16)
-    log_ok "Секрет сгенерирован: ${E_KEY} $PROXY_SECRET"
-}
-
-generate_ee_secret() {
-    local domain="$1"
-    local domain_hex=$(echo -n "$domain" | xxd -p | tr -d '\n')
-    local random_part=$(openssl rand -hex 14)
-    PROXY_SECRET="ee${random_part}${domain_hex}"
-    log_ok "FakeTLS секрет сгенерирован для домена: $domain"
 }
 
 # ============================================================
@@ -166,10 +155,10 @@ step_install_docker() {
 
     if command -v docker &>/dev/null; then
         log_ok "Docker уже установлен: $(docker --version)"
-        if ! command -v docker compose &>/dev/null && ! docker compose version &>/dev/null 2>&1; then
+        if ! docker compose version &>/dev/null 2>&1; then
             log_warn "Docker Compose не найден, устанавливаем..."
         else
-            log_ok "Docker Compose доступен"
+            log_ok "Docker Compose: $(docker compose version)"
             read -p "Нажмите Enter для продолжения..."
             return
         fi
@@ -181,9 +170,8 @@ step_install_docker() {
         apt-get update -qq
         apt-get install -y -qq apt-transport-https ca-certificates curl gnupg lsb-release
         mkdir -p /etc/apt/keyrings
-        curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg 2>/dev/null || \
         curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg 2>/dev/null || true
-        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$OS_NAME $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null 2>/dev/null || true
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null 2>/dev/null || true
         apt-get update -qq
         apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-compose-plugin
     elif command -v yum &>/dev/null; then
@@ -366,11 +354,74 @@ step_bot_config() {
 }
 
 # ============================================================
-# ШАГ 5: Создание конфигурации
+# ШАГ 5: Скачивание файлов с GitHub
+# ============================================================
+
+step_download_files() {
+    print_step "5" "Скачивание файлов проекта"
+
+    log_info "Скачивание файлов с GitHub..."
+
+    # Создаём временную директорию
+    local tmp_dir=$(mktemp -d)
+
+    # Список файлов для скачивания
+    local files=(
+        "webui/Dockerfile"
+        "webui/requirements.txt"
+        "webui/app.py"
+        "webui/templates/base.html"
+        "webui/templates/index.html"
+        "webui/templates/users.html"
+        "webui/templates/proxies.html"
+        "webui/templates/stats.html"
+        "webui/templates/settings.html"
+        "webui/templates/diagnostics.html"
+        "webui/static/css/style.css"
+        "webui/static/js/app.js"
+        "bot/Dockerfile"
+        "bot/requirements.txt"
+        "bot/bot.py"
+        "scripts/auto-heal.sh"
+        "scripts/auto-update.sh"
+        "scripts/backup.sh"
+        "scripts/health-check.sh"
+        "scripts/monitor.sh"
+        "scripts/rotate-domain.sh"
+        "scripts/speedtest.sh"
+        "scripts/add-proxy.sh"
+        "scripts/remove-proxy.sh"
+    )
+
+    local downloaded=0
+    local failed=0
+
+    for file in "${files[@]}"; do
+        local dir=$(dirname "$file")
+        mkdir -p "$tmp_dir/$dir"
+
+        if curl -fsSL -o "$tmp_dir/$file" "${REPO_URL}/${file}" 2>/dev/null; then
+            downloaded=$((downloaded + 1))
+        else
+            log_warn "Не удалось скачать: $file"
+            failed=$((failed + 1))
+        fi
+    done
+
+    log_ok "Скачано: $downloaded файлов, ошибок: $failed"
+
+    # Сохраняем во временную директорию для использования позже
+    DOWNLOAD_TMP_DIR="$tmp_dir"
+
+    read -p "Нажмите Enter для продолжения..."
+}
+
+# ============================================================
+# ШАГ 6: Создание конфигурации
 # ============================================================
 
 step_create_config() {
-    print_step "5" "Создание конфигурационных файлов"
+    print_step "6" "Создание конфигурационных файлов"
 
     mkdir -p "$INSTALL_DIR"
     mkdir -p "$INSTALL_DIR/mtproxy"
@@ -383,7 +434,6 @@ step_create_config() {
     # Генерация docker-compose.yml с поддержкой нескольких прокси
     log_info "Создание docker-compose.yml..."
 
-    # Начало файла
     cat > "$INSTALL_DIR/docker-compose.yml" << COMPOSE_HEADER_EOF
 version: '3.8'
 
@@ -646,92 +696,96 @@ GEO_EOF
 }
 
 # ============================================================
-# ШАГ 6: Копирование файлов Web UI
+# ШАГ 7: Копирование скачанных файлов
 # ============================================================
 
-step_copy_webui() {
-    print_step "6" "Подготовка Web UI"
+step_copy_files() {
+    print_step "7" "Установка файлов проекта"
 
-    mkdir -p "$INSTALL_DIR/webui"
+    if [ -n "${DOWNLOAD_TMP_DIR:-}" ] && [ -d "$DOWNLOAD_TMP_DIR" ]; then
+        # Копируем webui
+        if [ -d "$DOWNLOAD_TMP_DIR/webui" ]; then
+            cp -r "$DOWNLOAD_TMP_DIR/webui/"* "$INSTALL_DIR/webui/"
+            log_ok "Файлы Web UI установлены"
+        fi
 
-    # Копируем файлы из текущего репозитория
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        # Копируем bot
+        if [ -d "$DOWNLOAD_TMP_DIR/bot" ]; then
+            cp -r "$DOWNLOAD_TMP_DIR/bot/"* "$INSTALL_DIR/bot/"
+            log_ok "Файлы бота установлены"
+        fi
 
-    if [ -d "$SCRIPT_DIR/webui" ]; then
-        cp -r "$SCRIPT_DIR/webui/"* "$INSTALL_DIR/webui/"
-        log_ok "Файлы Web UI скопированы"
+        # Копируем scripts
+        if [ -d "$DOWNLOAD_TMP_DIR/scripts" ]; then
+            cp "$DOWNLOAD_TMP_DIR/scripts/"* "$INSTALL_DIR/scripts/"
+            chmod +x "$INSTALL_DIR/scripts/"*.sh
+            log_ok "Вспомогательные скрипты установлены"
+        fi
+
+        # Очищаем временную директорию
+        rm -rf "$DOWNLOAD_TMP_DIR"
     else
-        log_warn "Файлы Web UI не найдены, создаём минимальную версию..."
-        create_minimal_webui
+        log_warn "Файлы не были скачаны. Создаём минимальные версии..."
+        create_minimal_files
     fi
 
     read -p "Нажмите Enter для продолжения..."
 }
 
-create_minimal_webui() {
-    # Создаём минимальный Web UI если файлы не найдены
-    cat > "$INSTALL_DIR/webui/Dockerfile" << 'WDOCKER_EOF'
-FROM python:3.11-slim
+create_minimal_files() {
+    # Минимальный Web UI
+    mkdir -p "$INSTALL_DIR/webui/templates" "$INSTALL_DIR/webui/static/css" "$INSTALL_DIR/webui/static/js"
 
+    cat > "$INSTALL_DIR/webui/Dockerfile" << 'EOF'
+FROM python:3.11-slim
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-
 COPY . .
-
 EXPOSE 8000
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
-WDOCKER_EOF
+EOF
 
-    cat > "$INSTALL_DIR/webui/requirements.txt" << 'WREQ_EOF'
+    cat > "$INSTALL_DIR/webui/requirements.txt" << 'EOF'
 fastapi==0.109.0
 uvicorn==0.27.0
 jinja2==3.1.3
 python-multipart==0.0.6
-WREQ_EOF
-}
+qrcode==7.4.2
+pillow==10.2.0
+psutil==5.9.8
+EOF
 
-# ============================================================
-# ШАГ 7: Копирование файлов бота
-# ============================================================
-
-step_copy_bot() {
-    if [[ "$BOT_ENABLED" != "yes" ]]; then
-        log_info "Telegram бот пропущен"
-        return
-    fi
-
-    print_step "7" "Подготовка Telegram бота"
-
+    # Минимальный бот
     mkdir -p "$INSTALL_DIR/bot"
 
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    cat > "$INSTALL_DIR/bot/Dockerfile" << 'EOF'
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+CMD ["python", "bot.py"]
+EOF
 
-    if [ -d "$SCRIPT_DIR/bot" ]; then
-        cp -r "$SCRIPT_DIR/bot/"* "$INSTALL_DIR/bot/"
-        log_ok "Файлы бота скопированы"
-    fi
+    cat > "$INSTALL_DIR/bot/requirements.txt" << 'EOF'
+python-telegram-bot==21.0.1
+qrcode==7.4.2
+pillow==10.2.0
+requests==2.31.0
+EOF
 
-    read -p "Нажмите Enter для продолжения..."
+    log_warn "Созданы минимальные файлы. Рекомендуется скачать полные с GitHub."
 }
 
 # ============================================================
-# ШАГ 8: Копирование скриптов
+# ШАГ 8: Настройка автозапуска
 # ============================================================
 
-step_copy_scripts() {
-    print_step "8" "Установка вспомогательных скриптов"
+step_setup_autostart() {
+    print_step "8" "Настройка автозапуска"
 
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-    if [ -d "$SCRIPT_DIR/scripts" ]; then
-        cp "$SCRIPT_DIR/scripts/"* "$INSTALL_DIR/scripts/"
-        chmod +x "$INSTALL_DIR/scripts/"*.sh
-        log_ok "Вспомогательные скрипты установлены"
-    fi
-
-    # Установка systemd сервисов
-    log_info "Настройка автозапуска..."
+    log_info "Настройка systemd сервисов..."
 
     cat > /etc/systemd/system/mtproto-heal.service << 'HEAL_EOF'
 [Unit]
@@ -782,7 +836,7 @@ step_start() {
     docker compose pull
     docker compose up -d
 
-    sleep 3
+    sleep 5
 
     # Проверка
     if docker compose ps | grep -q "Up"; then
@@ -869,6 +923,7 @@ main() {
     echo -e "${WHITE}Добро пожаловать в установщик MTProtoSERVER!${NC}"
     echo -e "Этот скрипт установит полноценный MTProto прокси с:"
     echo -e "  ${E_SHIELD} FakeTLS маскировкой (обход блокировок)"
+    echo -e "  ${E_NET} Несколькими прокси (разные порты/домены)"
     echo -e "  ${E_NET} Web панелью управления"
     echo -e "  ${E_BOT} Telegram ботом (опционально)"
     echo -e "  ${E_CHART} Статистикой и мониторингом"
@@ -886,10 +941,10 @@ main() {
     step_install_docker
     step_proxy_config
     step_bot_config
+    step_download_files
     step_create_config
-    step_copy_webui
-    step_copy_bot
-    step_copy_scripts
+    step_copy_files
+    step_setup_autostart
     step_start
     step_summary
 }
