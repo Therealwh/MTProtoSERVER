@@ -51,6 +51,9 @@
             <a href="/settings" class="nav-link {% if request.url.path == '/settings' %}active{% endif %}">
                 <span class="nav-icon">⚙️</span><span>Настройки</span>
             </a>
+            <a href="/api/public/docs" class="nav-link {% if request.url.path == '/api/public/docs' %}active{% endif %}">
+                <span class="nav-icon">📚</span><span>API Docs</span>
+            </a>
         </nav>
         <div class="sidebar-footer">
             <button onclick="toggleTheme()" class="theme-btn" title="Сменить тему">🌓</button>

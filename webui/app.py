@@ -106,8 +106,14 @@ PROTECTED = ['/clients','/nodes','/stats','/settings','/security','/logs','/back
 @app.middleware("http")
 async def auth_mw(request, call_next):
     p = request.url.path
-    if p=='/login' or p.startswith('/static') or p.startswith('/api/auth') or p=='/api/qr' or p=='/api/system/logo':
+    if p=='/login' or p.startswith('/static') or p.startswith('/api/auth') or p=='/api/qr' or p=='/api/system/logo' or p.startswith('/api/public'):
         return await call_next(request)
+    if p in PROTECTED or p=='/':
+        a = get_auth()
+        if a.get('token'):
+            if request.cookies.get('auth_token','') != a['token']:
+                return RedirectResponse(url='/login', status_code=302)
+    return await call_next(request)
     if p in PROTECTED or p=='/':
         a = get_auth()
         if a.get('token'):
@@ -556,6 +562,78 @@ async def delete_mtproto(label: str):
     try: subprocess.run(['docker', 'rm', '-f', f'mtproto-proxy-{label}'], capture_output=True, timeout=10)
     except: pass
     return JSONResponse({'status': 'ok'})
+
+# =================== PUBLIC API (no auth required) ===================
+
+@app.get("/api/public/proxies")
+async def public_proxies():
+    """Публичный API — все прокси сервера для вашего сайта"""
+    s = get_settings()
+    ip = s.get('proxy_ip', '0.0.0.0')
+    cd = get_clients()
+    cl = cd.get('clients', [])
+    # MTProto прокси
+    mtproto = []
+    for c in cl:
+        if c.get('enabled', True):
+            mtproto.append({
+                'label': c.get('label', ''),
+                'port': c.get('port', 0),
+                'domain': c.get('domain', ''),
+                'secret': c.get('secret', ''),
+                'link': proxy_link(ip, c.get('port', 0), c.get('secret', ''))
+            })
+    # SOCKS5
+    socks5 = {
+        'enabled': s.get('socks5_enabled', False),
+        'port': s.get('socks5_port', 0),
+        'link': f"socks5://{ip}:{s.get('socks5_port', 0)}" if s.get('socks5_enabled') else ''
+    }
+    # HTTP
+    http = {
+        'enabled': s.get('http_proxy_enabled', False),
+        'port': s.get('http_proxy_port', 0),
+        'link': f"http://{ip}:{s.get('http_proxy_port', 0)}" if s.get('http_proxy_enabled') else ''
+    }
+    return JSONResponse({
+        'updated': datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),
+        'server_ip': ip,
+        'mtproto': mtproto,
+        'socks5': socks5,
+        'http': http
+    })
+
+@app.get("/api/public/mtproto")
+async def public_mtproto():
+    """Публичный API — только MTProto прокси (массив ссылок)"""
+    s = get_settings()
+    ip = s.get('proxy_ip', '0.0.0.0')
+    cd = get_clients()
+    cl = cd.get('clients', [])
+    proxies = []
+    for c in cl:
+        if c.get('enabled', True):
+            proxies.append({
+                'label': c.get('label', ''),
+                'port': c.get('port', 0),
+                'domain': c.get('domain', ''),
+                'secret': c.get('secret', ''),
+                'link': proxy_link(ip, c.get('port', 0), c.get('secret', ''))
+            })
+    return JSONResponse({'proxies': proxies, 'updated': datetime.now().strftime('%Y-%m-%dT%H:%M:%S')})
+
+@app.get("/api/public/docs", response_class=HTMLResponse)
+async def public_docs(request: Request):
+    """Страница документации публичного API"""
+    s = get_settings()
+    ip = s.get('proxy_ip', '0.0.0.0')
+    port = s.get('webui_port', 8080)
+    base_url = f"http://{ip}:{port}"
+    return templates.TemplateResponse("public_docs.html", {
+        'request': request, 'base_url': base_url, 'server_ip': ip,
+        'has_logo': os.path.exists(LOGO_FILE), 'lang': 'ru', 'now': datetime.now().strftime('%Y-%m-%d'),
+        'settings': s
+    })
 
 # SECURITY API
 @app.get("/api/security/ip-lists")
