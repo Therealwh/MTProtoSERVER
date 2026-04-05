@@ -595,15 +595,6 @@ async def create_mtproto(request: Request):
     return JSONResponse({'status': 'ok', 'label': label, 'port': port, 'secret': secret,
                         'link': proxy_link(s.get('proxy_ip', '0.0.0.0'), port, secret)})
 
-@app.post("/api/mtproto/{label}/delete")
-async def delete_mtproto(label: str):
-    s = get_settings()
-    s['proxy_count'] = max(0, s.get('proxy_count', 1) - 1)
-    save_settings(s)
-    try: subprocess.run(['docker', 'rm', '-f', f'mtproto-proxy-{label}'], capture_output=True, timeout=10)
-    except: pass
-    return JSONResponse({'status': 'ok'})
-
 # Create new MTProto proxy instance
 @app.post("/api/mtproto/create")
 async def create_mtproto(request: Request):
