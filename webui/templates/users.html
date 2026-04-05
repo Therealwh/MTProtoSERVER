@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Пользователи - MTProtoSERVER{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>👥 Управление пользователями</h2>
+    <p>Добавление, удаление и управление доступом</p>
+</div>
+
+<div class="section">
+    <h3>➕ Добавить пользователя</h3>
+    <form id="add-user-form" class="form-inline">
+        <input type="text" name="label" placeholder="Имя пользователя" required class="input">
+        <button type="submit" class="btn btn-primary">Добавить</button>
+    </form>
+    <div id="add-result" class="result-box" style="display:none;"></div>
+</div>
+
+<div class="section">
+    <h3>📋 Список пользователей ({{ users | length }})</h3>
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Имя</th>
+                    <th>Статус</th>
+                    <th>Секрет</th>
+                    <th>Трафик IN</th>
+                    <th>Трафик OUT</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td>{{ user.id }}</td>
+                    <td><strong>{{ user.label }}</strong></td>
+                    <td>
+                        {% if user.enabled %}
+                        <span class="badge badge-success">Активен</span>
+                        {% else %}
+                        <span class="badge badge-danger">Отключён</span>
+                        {% endif %}
+                    </td>
+                    <td><code class="secret-code">{{ user.secret[:16] }}...</code></td>
+                    <td>{{ user.traffic_in | default(0) }}</td>
+                    <td>{{ user.traffic_out | default(0) }}</td>
+                    <td class="actions-cell">
+                        <button class="btn btn-sm" onclick="copyUserLink('{{ user.secret }}')">📋 Ссылка</button>
+                        <button class="btn btn-sm" onclick="toggleUser({{ user.id }})">
+                            {% if user.enabled %}⏸️{% else %}▶️{% endif %}
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteUser({{ user.id }})">🗑️</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('add-user-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    const result = document.getElementById('add-result');
+
+    try {
+        const response = await fetch('/api/users/add', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        result.style.display = 'block';
+        result.className = 'result-box success';
+        result.innerHTML = `
+            <p>✅ Пользователь добавлен!</p>
+            <p>Ссылка: <code>${data.link}</code></p>
+            <button class="btn btn-sm" onclick="navigator.clipboard.writeText('${data.link}')">📋 Копировать</button>
+        `;
+        setTimeout(() => location.reload(), 2000);
+    } catch (err) {
+        result.style.display = 'block';
+        result.className = 'result-box error';
+        result.textContent = '❌ Ошибка: ' + err.message;
+    }
+});
+
+function copyUserLink(secret) {
+    const link = `{{ settings.proxy_ip ? 'tg://proxy?server=' + settings.proxy_ip + '&port=' + settings.proxy_port + '&secret=' : '' }}${secret}`;
+    navigator.clipboard.writeText(link);
+    showToast('Ссылка скопирована!');
+}
+
+async function toggleUser(id) {
+    await fetch(`/api/users/${id}/toggle`, { method: 'POST' });
+    location.reload();
+}
+
+async function deleteUser(id) {
+    if (!confirm('Удалить пользователя?')) return;
+    await fetch(`/api/users/${id}/delete`, { method: 'POST' });
+    location.reload();
+}
+</script>
+{% endblock %}

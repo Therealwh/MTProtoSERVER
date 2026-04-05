@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Диагностика - MTProtoSERVER{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>🔧 Диагностика</h2>
+    <p>Проверка состояния системы и прокси</p>
+</div>
+
+<div class="section">
+    <h3>🖥️ Системная информация</h3>
+    <div class="system-info">
+        <div class="info-row">
+            <span>CPU:</span>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ system.cpu_percent }}%"></div>
+            </div>
+            <span>{{ system.cpu_percent }}%</span>
+        </div>
+        <div class="info-row">
+            <span>RAM:</span>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ system.memory_percent }}%"></div>
+            </div>
+            <span>{{ system.memory_used }}/{{ system.memory_total }} GB</span>
+        </div>
+        <div class="info-row">
+            <span>Диск:</span>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ system.disk_percent }}%"></div>
+            </div>
+            <span>{{ system.disk_used }}/{{ system.disk_total }} GB</span>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h3>📡 Статус Docker контейнеров</h3>
+    <pre class="log-box">{{ proxy_status }}</pre>
+</div>
+
+<div class="section">
+    <h3>🔍 Проверки</h3>
+    <div class="checks-list">
+        <div class="check-item">
+            <span class="check-icon">✅</span>
+            <span>Docker запущен</span>
+        </div>
+        <div class="check-item">
+            <span class="check-icon">✅</span>
+            <span>Web UI работает</span>
+        </div>
+        <div class="check-item">
+            <span class="check-icon">✅</span>
+            <span>Конфигурация загружена</span>
+        </div>
+    </div>
+</div>
+{% endblock %}

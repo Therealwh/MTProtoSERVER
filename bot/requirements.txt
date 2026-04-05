@@ -1,0 +1,4 @@
+python-telegram-bot==21.0.1
+qrcode==7.4.2
+pillow==10.2.0
+requests==2.31.0

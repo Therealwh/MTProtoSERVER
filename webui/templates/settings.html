@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Настройки - MTProtoSERVER{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>⚙️ Настройки</h2>
+    <p>Конфигурация прокси сервера</p>
+</div>
+
+<div class="section">
+    <h3>🌐 Настройки прокси</h3>
+    <div class="settings-grid">
+        <div class="setting-item">
+            <label>IP сервера</label>
+            <input type="text" value="{{ settings.proxy_ip }}" class="input" readonly>
+        </div>
+        <div class="setting-item">
+            <label>Порт прокси</label>
+            <input type="text" value="{{ settings.proxy_port }}" class="input" readonly>
+        </div>
+        <div class="setting-item">
+            <label>Домен маскировки (FakeTLS)</label>
+            <input type="text" value="{{ settings.fake_domain }}" class="input" readonly>
+        </div>
+        <div class="setting-item">
+            <label>Порт Web UI</label>
+            <input type="text" value="{{ settings.webui_port }}" class="input" readonly>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h3>🤖 Telegram бот</h3>
+    <div class="settings-grid">
+        <div class="setting-item">
+            <label>Статус бота</label>
+            <input type="text" value="{% if settings.bot_enabled %}Включён{% else %}Отключён{% endif %}" class="input" readonly>
+        </div>
+        <div class="setting-item">
+            <label>Admin Chat ID</label>
+            <input type="text" value="{{ settings.admin_chat_id or 'Не задан' }}" class="input" readonly>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h3>🛡️ Безопасность</h3>
+    <div class="settings-grid">
+        <div class="setting-item">
+            <label>Auto-Heal</label>
+            <input type="text" value="{% if settings.auto_heal %}Включён{% else %}Отключён{% endif %}" class="input" readonly>
+        </div>
+        <div class="setting-item">
+            <label>Auto-Update</label>
+            <input type="text" value="{% if settings.auto_update %}Включён{% else %}Отключён{% endif %}" class="input" readonly>
+        </div>
+        <div class="setting-item">
+            <label>Backup</label>
+            <input type="text" value="{% if settings.backup_enabled %}{{ settings.backup_interval }}{% else %}Отключён{% endif %}" class="input" readonly>
+        </div>
+        <div class="setting-item">
+            <label>Rate Limit</label>
+            <input type="text" value="{{ settings.rate_limit }} запросов/мин" class="input" readonly>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h3>📁 Файлы конфигурации</h3>
+    <div class="file-list">
+        <div class="file-item">
+            <span>📄 /opt/mtprotoserver/config/settings.json</span>
+            <span class="badge">Настройки</span>
+        </div>
+        <div class="file-item">
+            <span>📄 /opt/mtprotoserver/data/users.json</span>
+            <span class="badge">Пользователи</span>
+        </div>
+        <div class="file-item">
+            <span>📄 /opt/mtprotoserver/docker-compose.yml</span>
+            <span class="badge">Docker</span>
+        </div>
+        <div class="file-item">
+            <span>📄 /opt/mtprotoserver/config/domains.txt</span>
+            <span class="badge">Домены FakeTLS</span>
+        </div>
+    </div>
+</div>
+{% endblock %}

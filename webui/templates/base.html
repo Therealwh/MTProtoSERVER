@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MTProtoSERVER{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h1>MTProtoSERVER</h1>
+            <p class="version">v1.0.0</p>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/" class="nav-link {% if request.url.path == '/' %}active{% endif %}">
+                <span class="nav-icon">📊</span>
+                <span>Дашборд</span>
+            </a>
+            <a href="/users" class="nav-link {% if request.url.path == '/users' %}active{% endif %}">
+                <span class="nav-icon">👥</span>
+                <span>Пользователи</span>
+            </a>
+            <a href="/stats" class="nav-link {% if request.url.path == '/stats' %}active{% endif %}">
+                <span class="nav-icon">📈</span>
+                <span>Статистика</span>
+            </a>
+            <a href="/settings" class="nav-link {% if request.url.path == '/settings' %}active{% endif %}">
+                <span class="nav-icon">⚙️</span>
+                <span>Настройки</span>
+            </a>
+            <a href="/diagnostics" class="nav-link {% if request.url.path == '/diagnostics' %}active{% endif %}">
+                <span class="nav-icon">🔧</span>
+                <span>Диагностика</span>
+            </a>
+        </nav>
+    </div>
+
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="/static/js/app.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

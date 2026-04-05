@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Дашборд - MTProtoSERVER{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Дашборд</h2>
+    <p>Обзор состояния MTProto прокси</p>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon">👥</div>
+        <div class="stat-info">
+            <h3>{{ users_count }}</h3>
+            <p>Всего пользователей</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">✅</div>
+        <div class="stat-info">
+            <h3>{{ active_users }}</h3>
+            <p>Активных</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">📡</div>
+        <div class="stat-info">
+            <h3>{{ total_traffic | default(0) }}</h3>
+            <p>Трафик (байт)</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">🖥️</div>
+        <div class="stat-info">
+            <h3>{{ system.cpu_percent }}%</h3>
+            <p>CPU</p>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h3>🔗 Ссылка для подключения</h3>
+    <div class="proxy-link-box">
+        <code id="proxy-link">{{ proxy_link }}</code>
+        <button class="btn btn-sm" onclick="copyLink()">📋 Копировать</button>
+    </div>
+</div>
+
+<div class="section">
+    <h3>🖥️ Системная информация</h3>
+    <div class="system-info">
+        <div class="info-row">
+            <span>CPU:</span>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ system.cpu_percent }}%"></div>
+            </div>
+            <span>{{ system.cpu_percent }}%</span>
+        </div>
+        <div class="info-row">
+            <span>RAM:</span>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ system.memory_percent }}%"></div>
+            </div>
+            <span>{{ system.memory_used }}/{{ system.memory_total }} GB</span>
+        </div>
+        <div class="info-row">
+            <span>Диск:</span>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ system.disk_percent }}%"></div>
+            </div>
+            <span>{{ system.disk_used }}/{{ system.disk_total }} GB</span>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h3>⚡ Быстрые действия</h3>
+    <div class="actions-grid">
+        <a href="/users" class="action-card">
+            <span class="action-icon">➕</span>
+            <span>Добавить пользователя</span>
+        </a>
+        <a href="/stats" class="action-card">
+            <span class="action-icon">📈</span>
+            <span>Посмотреть статистику</span>
+        </a>
+        <a href="/settings" class="action-card">
+            <span class="action-icon">⚙️</span>
+            <span>Настройки</span>
+        </a>
+        <a href="/diagnostics" class="action-card">
+            <span class="action-icon">🔧</span>
+            <span>Диагностика</span>
+        </a>
+    </div>
+</div>
+{% endblock %}

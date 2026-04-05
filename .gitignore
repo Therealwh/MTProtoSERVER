@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+venv/
+env/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Data (generated at runtime)
+data/*.db
+data/stats/
+data/secrets.conf
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker
+docker-compose.override.yml
+
+# Backup
+*.bak
+*.backup
+
+# Environment
+.env

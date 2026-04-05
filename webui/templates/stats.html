@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Статистика - MTProtoSERVER{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>📈 Статистика</h2>
+    <p>Детальная статистика использования прокси</p>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon">👥</div>
+        <div class="stat-info">
+            <h3>{{ users | length }}</h3>
+            <p>Всего пользователей</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">✅</div>
+        <div class="stat-info">
+            <h3>{{ users | selectattr('enabled') | list | length }}</h3>
+            <p>Активных</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">📡</div>
+        <div class="stat-info">
+            <h3>{{ system.cpu_percent }}%</h3>
+            <p>Нагрузка CPU</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">💾</div>
+        <div class="stat-info">
+            <h3>{{ system.memory_percent }}%</h3>
+            <p>Использование RAM</p>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h3>📊 Трафик по пользователям</h3>
+    <div class="chart-container">
+        <canvas id="trafficChart"></canvas>
+    </div>
+</div>
+
+<div class="section">
+    <h3>📋 Детализация по пользователям</h3>
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Пользователь</th>
+                    <th>Статус</th>
+                    <th>Трафик IN</th>
+                    <th>Трафик OUT</th>
+                    <th>Всего</th>
+                    <th>Создан</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td><strong>{{ user.label }}</strong></td>
+                    <td>
+                        {% if user.enabled %}
+                        <span class="badge badge-success">Активен</span>
+                        {% else %}
+                        <span class="badge badge-danger">Отключён</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ user.traffic_in | default(0) | filesizeformat }}</td>
+                    <td>{{ user.traffic_out | default(0) | filesizeformat }}</td>
+                    <td><strong>{{ (user.traffic_in | default(0) + user.traffic_out | default(0)) | filesizeformat }}</strong></td>
+                    <td>{{ user.created_at }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="section">
+    <h3>🖥️ Системные ресурсы</h3>
+    <div class="system-info">
+        <div class="info-row">
+            <span>CPU:</span>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ system.cpu_percent }}%"></div>
+            </div>
+            <span>{{ system.cpu_percent }}%</span>
+        </div>
+        <div class="info-row">
+            <span>RAM:</span>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ system.memory_percent }}%"></div>
+            </div>
+            <span>{{ system.memory_used }}/{{ system.memory_total }} GB</span>
+        </div>
+        <div class="info-row">
+            <span>Диск:</span>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ system.disk_percent }}%"></div>
+            </div>
+            <span>{{ system.disk_used }}/{{ system.disk_total }} GB</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const users = {{ users | tojson }};
+const labels = users.map(u => u.label);
+const trafficIn = users.map(u => u.traffic_in || 0);
+const trafficOut = users.map(u => u.traffic_out || 0);
+
+new Chart(document.getElementById('trafficChart'), {
+    type: 'bar',
+    data: {
+        labels: labels,
+        datasets: [
+            { label: 'Трафик IN', data: trafficIn, backgroundColor: 'rgba(52, 152, 219, 0.7)' },
+            { label: 'Трафик OUT', data: trafficOut, backgroundColor: 'rgba(46, 204, 113, 0.7)' }
+        ]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { position: 'top' } },
+        scales: { y: { beginAtZero: true } }
+    }
+});
+</script>
+{% endblock %}
