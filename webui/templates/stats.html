@@ -1,45 +1,47 @@
 {% extends "base.html" %}
-{% block title %}Statistics - MTProtoSERVER{% endblock %}
+{% block title %}Статистика - MTProtoSERVER{% endblock %}
 {% block content %}
 <div class="page-header">
-    <h2>📈 Statistics</h2>
-    <p>Detailed traffic and connection analytics</p>
+    <h2>📈 Статистика</h2>
+    <p>Детальная статистика использования прокси. Здесь вы видите трафик по каждому клиенту, графики и ресурсы сервера.</p>
 </div>
 
 <div class="stats-grid">
     <div class="stat-card">
         <div class="stat-icon">👥</div>
-        <div class="stat-info"><h3>{{ clients | length }}</h3><p>Total clients</p></div>
+        <div class="stat-info"><h3>{{ clients | length }}</h3><p>Всего клиентов</p></div>
     </div>
     <div class="stat-card">
         <div class="stat-icon">✅</div>
-        <div class="stat-info"><h3>{{ clients | selectattr('enabled') | list | length }}</h3><p>Active</p></div>
+        <div class="stat-info"><h3>{{ clients | selectattr('enabled') | list | length }}</h3><p>Активных</p></div>
     </div>
     <div class="stat-card">
         <div class="stat-icon">🖥️</div>
-        <div class="stat-info"><h3>{{ system.cpu_percent }}%</h3><p>CPU</p></div>
+        <div class="stat-info"><h3>{{ system.cpu_percent }}%</h3><p>Загрузка CPU</p></div>
     </div>
     <div class="stat-card">
         <div class="stat-icon">💾</div>
-        <div class="stat-info"><h3>{{ system.memory_percent }}%</h3><p>RAM</p></div>
+        <div class="stat-info"><h3>{{ system.memory_percent }}%</h3><p>Использование RAM</p></div>
     </div>
 </div>
 
 <div class="section">
-    <h3>📊 Traffic by Client</h3>
+    <h3>📊 Трафик по клиентам</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Столбчатая диаграмма показывает объём полученного (RX) и отправленного (TX) трафика для каждого клиента.</p>
     <div class="chart-container"><canvas id="trafficChart"></canvas></div>
 </div>
 
 <div class="section">
-    <h3>📋 Client Details</h3>
+    <h3>📋 Детализация по клиентам</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Таблица с подробной информацией: статус, объём трафика, количество уникальных IP и дата создания.</p>
     <div class="table-container">
         <table class="table">
-            <thead><tr><th>Client</th><th>Status</th><th>RX</th><th>TX</th><th>Total</th><th>IPs</th><th>Created</th></tr></thead>
+            <thead><tr><th>Клиент</th><th>Статус</th><th>RX</th><th>TX</th><th>Всего</th><th>IP</th><th>Создан</th></tr></thead>
             <tbody>
                 {% for c in clients %}
                 <tr>
                     <td><strong>{{ c.label }}</strong></td>
-                    <td>{% if c.enabled %}<span class="badge badge-success">Active</span>{% else %}<span class="badge badge-danger">Disabled</span>{% endif %}</td>
+                    <td>{% if c.enabled %}<span class="badge badge-success">Активен</span>{% else %}<span class="badge badge-danger">Отключён</span>{% endif %}</td>
                     <td>{{ c.rx_bytes | default(0) | filesizeformat }}</td>
                     <td>{{ c.tx_bytes | default(0) | filesizeformat }}</td>
                     <td><strong>{{ (c.rx_bytes | default(0) + c.tx_bytes | default(0)) | filesizeformat }}</strong></td>
@@ -53,7 +55,8 @@
 </div>
 
 <div class="section">
-    <h3>🖥️ Server Resources</h3>
+    <h3>🖥️ Ресурсы сервера</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Текущая загрузка процессора, оперативной памяти и диска.</p>
     <div class="system-info">
         <div class="info-row">
             <span>CPU:</span><div class="progress-bar"><div class="progress-fill" style="width: {{ system.cpu_percent }}%"></div></div><span>{{ system.cpu_percent }}%</span>
@@ -62,7 +65,7 @@
             <span>RAM:</span><div class="progress-bar"><div class="progress-fill" style="width: {{ system.memory_percent }}%"></div></div><span>{{ system.memory_used_gb }}/{{ system.memory_total_gb }} GB</span>
         </div>
         <div class="info-row">
-            <span>Disk:</span><div class="progress-bar"><div class="progress-fill" style="width: {{ system.disk_percent }}%"></div></div><span>{{ system.disk_used_gb }}/{{ system.disk_total_gb }} GB</span>
+            <span>Диск:</span><div class="progress-bar"><div class="progress-fill" style="width: {{ system.disk_percent }}%"></div></div><span>{{ system.disk_used_gb }}/{{ system.disk_total_gb }} GB</span>
         </div>
     </div>
 </div>
@@ -77,7 +80,7 @@ const rx = clients.map(c => c.rx_bytes || 0);
 const tx = clients.map(c => c.tx_bytes || 0);
 new Chart(document.getElementById('trafficChart'), {
     type: 'bar',
-    data: { labels, datasets: [{ label: 'RX', data: rx, backgroundColor: 'rgba(52,152,219,0.7)' }, { label: 'TX', data: tx, backgroundColor: 'rgba(46,204,113,0.7)' }] },
+    data: { labels, datasets: [{ label: 'RX (получено)', data: rx, backgroundColor: 'rgba(52,152,219,0.7)' }, { label: 'TX (отправлено)', data: tx, backgroundColor: 'rgba(46,204,113,0.7)' }] },
     options: { responsive: true, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true } } }
 });
 </script>

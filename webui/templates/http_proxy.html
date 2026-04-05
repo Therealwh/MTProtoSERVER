@@ -1,13 +1,14 @@
 {% extends "base.html" %}
-{% block title %}HTTP/HTTPS прокси - MTProtoSERVER{% endblock %}
+{% block title %}HTTP/HTTPS - MTProtoSERVER{% endblock %}
 {% block content %}
 <div class="page-header">
     <h2>🌐 HTTP/HTTPS прокси</h2>
-    <p>Прокси для браузера, приложений, парсинга (Squid)</p>
+    <p>HTTP/HTTPS прокси на базе Squid — подходит для браузеров, парсинга, скриптов и любых HTTP-приложений. Поддерживает кэширование для ускорения загрузки и аутентификацию по логину/паролю.</p>
 </div>
 
 <div class="section">
     <h3>📊 Статус HTTP/HTTPS прокси</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Информация о текущем состоянии HTTP прокси. Если статус "Работает" — прокси доступен для подключений.</p>
     {% if settings.http_proxy_enabled %}
     <div class="proxy-card proxy-active" style="max-width:600px;">
         <div class="proxy-header">
@@ -16,6 +17,7 @@
         </div>
         <div class="proxy-details">
             <div><span>Порт:</span> <strong>{{ settings.http_proxy_port }}</strong></div>
+            <div><span>IP:</span> <strong>{{ settings.proxy_ip }}</strong></div>
             <div><span>Логин:</span> <strong>{{ settings.http_proxy_user }}</strong></div>
             <div><span>Тип:</span> <strong>HTTP + HTTPS</strong></div>
         </div>
@@ -25,21 +27,22 @@
         </div>
     </div>
     {% else %}
-    <p style="color: var(--text-secondary);">HTTP/HTTPS прокси не установлен. Добавьте при переустановке.</p>
+    <p style="color:var(--text-secondary);">HTTP/HTTPS прокси не установлен. Запустите установщик заново и выберите установку HTTP прокси.</p>
     {% endif %}
 </div>
 
 {% if settings.http_proxy_enabled %}
 <div class="section">
-    <h3>📱 Как использовать</h3>
+    <h3>📱 Как использовать HTTP/HTTPS прокси</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Инструкции по подключению к HTTP прокси из различных приложений.</p>
     <div class="tips-list">
         <div class="tip-item">
             <span class="tip-icon">🌐</span>
-            <span><strong>Браузер:</strong> Настройки → Прокси → HTTP → IP:{{ settings.http_proxy_port }}, логин: {{ settings.http_proxy_user }}</span>
+            <span><strong>Браузер:</strong> Настройки → Прокси → HTTP → IP: {{ settings.proxy_ip }}, порт: {{ settings.http_proxy_port }}, логин: {{ settings.http_proxy_user }}</span>
         </div>
         <div class="tip-item">
             <span class="tip-icon">🔧</span>
-            <span><strong>cURL:</strong> <code>curl -x http://{{ settings.http_proxy_user }}:PASSWORD@{{ settings.proxy_ip }}:{{ settings.http_proxy_port }} https://ifconfig.me</code></span>
+            <span><strong>cURL:</strong> <code>curl -x http://USER:PASS@{{ settings.proxy_ip }}:{{ settings.http_proxy_port }} https://ifconfig.me</code></span>
         </div>
         <div class="tip-item">
             <span class="tip-icon">🐍</span>
@@ -47,55 +50,24 @@
         </div>
         <div class="tip-item">
             <span class="tip-icon">📱</span>
-            <span><strong>Telegram:</strong> Не поддерживается (используйте SOCKS5 или MTProto)</span>
+            <span><strong>Telegram:</strong> Не поддерживается — используйте SOCKS5 или MTProto</span>
         </div>
     </div>
 </div>
 {% endif %}
 
 <div class="section">
-    <h3>💡 Отличия от SOCKS5</h3>
+    <h3>💡 Отличия типов прокси</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Сравнительная таблица поможет выбрать подходящий тип прокси для ваших задач.</p>
     <div class="table-container">
         <table class="table">
-            <thead>
-                <tr>
-                    <th></th>
-                    <th>HTTP/HTTPS</th>
-                    <th>SOCKS5</th>
-                    <th>MTProto</th>
-                </tr>
-            </thead>
+            <thead><tr><th></th><th>HTTP/HTTPS</th><th>SOCKS5</th><th>MTProto</th></tr></thead>
             <tbody>
-                <tr>
-                    <td><strong>Telegram</strong></td>
-                    <td>❌ Нет</td>
-                    <td>✅ Да</td>
-                    <td>✅ Да</td>
-                </tr>
-                <tr>
-                    <td><strong>Браузер</strong></td>
-                    <td>✅ Да</td>
-                    <td>✅ Да</td>
-                    <td>❌ Нет</td>
-                </tr>
-                <tr>
-                    <td><strong>Любой TCP</strong></td>
-                    <td>❌ Только HTTP</td>
-                    <td>✅ Да</td>
-                    <td>❌ Только Telegram</td>
-                </tr>
-                <tr>
-                    <td><strong>Кэширование</strong></td>
-                    <td>✅ Да</td>
-                    <td>❌ Нет</td>
-                    <td>❌ Нет</td>
-                </tr>
-                <tr>
-                    <td><strong>Обход блокировок</strong></td>
-                    <td>⚠️ Частично</td>
-                    <td>⚠️ Частично</td>
-                    <td>✅ Полное (FakeTLS)</td>
-                </tr>
+                <tr><td><strong>Telegram</strong></td><td>❌ Нет</td><td>✅ Да</td><td>✅ Да</td></tr>
+                <tr><td><strong>Браузер</strong></td><td>✅ Да</td><td>✅ Да</td><td>❌ Нет</td></tr>
+                <tr><td><strong>Любой TCP</strong></td><td>❌ Только HTTP</td><td>✅ Да</td><td>❌ Только Telegram</td></tr>
+                <tr><td><strong>Кэширование</strong></td><td>✅ Да</td><td>❌ Нет</td><td>❌ Нет</td></tr>
+                <tr><td><strong>Обход блокировок</strong></td><td>⚠️ Частично</td><td>⚠️ Частично</td><td>✅ Полное (FakeTLS)</td></tr>
             </tbody>
         </table>
     </div>

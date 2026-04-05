@@ -1,48 +1,51 @@
 {% extends "base.html" %}
-{% block title %}Settings - MTProtoSERVER{% endblock %}
+{% block title %}Настройки - MTProtoSERVER{% endblock %}
 {% block content %}
 <div class="page-header">
-    <h2>⚙️ Settings</h2>
-    <p>System configuration and security</p>
+    <h2>⚙️ Настройки</h2>
+    <p>Здесь вы настраиваете безопасность, внешний вид и дополнительные функции панели управления.</p>
 </div>
 
 <div class="section">
-    <h3>🔐 Authentication</h3>
+    <h3>🔐 Аутентификация</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Установите токен для доступа к панели управления. Это основной пароль для входа.</p>
     <form id="token-form" class="form-inline">
-        <input type="text" name="token" placeholder="New auth token" class="input" style="flex:1;">
-        <button type="submit" class="btn btn-primary">🔑 Change Token</button>
+        <input type="text" name="token" placeholder="Новый токен доступа" class="input" style="flex:1;">
+        <button type="submit" class="btn btn-primary">🔑 Сменить токен</button>
     </form>
     <div id="token-result" class="result-box" style="display:none;"></div>
 </div>
 
 <div class="section">
-    <h3>🔒 Two-Factor Authentication (TOTP)</h3>
+    <h3>🔒 Двухфакторная аутентификация (TOTP)</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Дополнительная защита: после ввода токена потребуется 6-значный код из приложения Google Authenticator, Aegis или Authy.</p>
     <div id="totp-status">
         {% if auth.totp_enabled %}
-        <p><span class="badge badge-success">✅ 2FA Enabled</span></p>
-        <button class="btn btn-danger" onclick="disableTOTP()">🔓 Disable 2FA</button>
+        <p><span class="badge badge-success">✅ 2FA включена</span></p>
+        <button class="btn btn-danger" onclick="disableTOTP()">🔓 Отключить 2FA</button>
         {% else %}
-        <p><span class="badge badge-warning">❌ 2FA Disabled</span></p>
-        <button class="btn btn-primary" onclick="setupTOTP()">🔐 Setup 2FA</button>
+        <p><span class="badge badge-warning">❌ 2FA отключена</span></p>
+        <button class="btn btn-primary" onclick="setupTOTP()">🔐 Настроить 2FA</button>
         {% endif %}
     </div>
     <div id="totp-setup" style="display:none;margin-top:16px;">
-        <p>Scan this QR code with Google Authenticator, Aegis, or Authy:</p>
+        <p>Отсканируйте QR-код в Google Authenticator, Aegis или Authy:</p>
         <img id="totp-qr" src="" style="max-width:200px;margin:12px 0;">
-        <p>Secret: <code id="totp-secret"></code></p>
+        <p>Секрет: <code id="totp-secret"></code></p>
         <div class="form-inline">
-            <input type="text" id="totp-code" placeholder="6-digit code" maxlength="6" class="input">
-            <button class="btn btn-primary" onclick="enableTOTP()">✅ Enable</button>
+            <input type="text" id="totp-code" placeholder="6-значный код" maxlength="6" class="input">
+            <button class="btn btn-primary" onclick="enableTOTP()">✅ Включить</button>
         </div>
         <div id="totp-result" class="result-box" style="display:none;"></div>
     </div>
 </div>
 
 <div class="section">
-    <h3>🖼️ Custom Logo</h3>
+    <h3>🖼️ Логотип</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Загрузите свой логотип — он будет отображаться в боковой панели вместо названия MTProtoSERVER.</p>
     <form id="logo-form" class="form-inline">
         <input type="file" name="logo" accept="image/*" class="input">
-        <button type="submit" class="btn btn-primary">📤 Upload</button>
+        <button type="submit" class="btn btn-primary">📤 Загрузить</button>
     </form>
     <div id="logo-result" class="result-box" style="display:none;"></div>
     {% if has_logo %}
@@ -51,19 +54,21 @@
 </div>
 
 <div class="section">
-    <h3>💰 Ad-Tag</h3>
+    <h3>💰 Ad-Tag (монетизация)</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Получите Ad-Tag у @MTProxyBot в Telegram и вставьте сюда. Пользователи увидят спонсорский канал, а вы получите доход.</p>
     <form id="adtag-form" class="form-inline">
-        <input type="text" name="ad_tag" placeholder="Ad-Tag hex" value="{{ settings.ad_tag or '' }}" class="input" style="flex:1;">
-        <button type="submit" class="btn btn-primary">💰 Set Ad-Tag</button>
+        <input type="text" name="ad_tag" placeholder="Ad-Tag (hex строка)" value="{{ settings.ad_tag or '' }}" class="input" style="flex:1;">
+        <button type="submit" class="btn btn-primary">💰 Установить Ad-Tag</button>
     </form>
     <div id="adtag-result" class="result-box" style="display:none;"></div>
 </div>
 
 <div class="section">
-    <h3>🔄 Domain Rotation</h3>
+    <h3>🔄 Ротация домена маскировки</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Смените домен, под который маскируется трафик MTProto. Полезно если текущий домен заблокирован.</p>
     <form id="domain-form" class="form-inline">
         <select name="domain" class="input">
-            <option value="cloudflare.com">cloudflare.com</option>
+            <option value="cloudflare.com">cloudflare.com (рекомендуется)</option>
             <option value="1c.ru">1c.ru</option>
             <option value="sberbank.ru">sberbank.ru</option>
             <option value="yandex.ru">yandex.ru</option>
@@ -71,30 +76,31 @@
             <option value="vk.com">vk.com</option>
             <option value="gosuslugi.ru">gosuslugi.ru</option>
         </select>
-        <button type="submit" class="btn btn-primary">🔄 Change Domain</button>
+        <button type="submit" class="btn btn-primary">🔄 Сменить домен</button>
     </form>
     <div id="domain-result" class="result-box" style="display:none;"></div>
 </div>
 
 <div class="section">
-    <h3>🔔 Webhook Notifications</h3>
+    <h3>🔔 Уведомления (Webhook)</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Настройте отправку уведомлений в Discord, Slack или любой другой webhook URL. Например, при падении прокси.</p>
     <form id="webhook-form" class="form-inline">
         <input type="text" name="webhook_url" placeholder="https://discord.com/api/webhooks/..." value="{{ settings.webhook_url or '' }}" class="input" style="flex:1;">
-        <button type="submit" class="btn btn-primary">🔔 Test Webhook</button>
+        <button type="submit" class="btn btn-primary">🔔 Тест webhook</button>
     </form>
     <div id="webhook-result" class="result-box" style="display:none;"></div>
 </div>
 
 <div class="section">
-    <h3>🚀 Speedtest</h3>
-    <button class="btn btn-primary" onclick="runSpeedtest()">🚀 Run Speedtest</button>
+    <h3>🚀 Тест скорости</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Проверьте скорость интернет-соединения вашего сервера: загрузка, отдача и пинг. Тест занимает до 30 секунд.</p>
+    <button class="btn btn-primary" onclick="runSpeedtest()">🚀 Запустить тест скорости</button>
     <div id="speedtest-result" class="result-box" style="display:none;"></div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-// Token
 document.getElementById('token-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
@@ -103,10 +109,9 @@ document.getElementById('token-form').addEventListener('submit', async (e) => {
     const r = document.getElementById('token-result');
     r.style.display = 'block';
     r.className = data.status === 'ok' ? 'result-box success' : 'result-box error';
-    r.textContent = data.status === 'ok' ? '✅ Token changed' : '❌ ' + data.message;
+    r.textContent = data.status === 'ok' ? '✅ Токен изменён' : '❌ ' + data.message;
 });
 
-// TOTP
 async function setupTOTP() {
     const res = await fetch('/api/auth/totp-setup');
     const data = await res.json();
@@ -124,21 +129,20 @@ async function enableTOTP() {
     r.style.display = 'block';
     if (data.status === 'ok') {
         r.className = 'result-box success';
-        r.textContent = '✅ 2FA enabled!';
+        r.textContent = '✅ 2FA включена!';
         setTimeout(() => location.reload(), 1500);
     } else {
         r.className = 'result-box error';
-        r.textContent = '❌ Invalid code';
+        r.textContent = '❌ Неверный код';
     }
 }
 
 async function disableTOTP() {
-    if (!confirm('Disable 2FA?')) return;
+    if (!confirm('Отключить 2FA?')) return;
     await fetch('/api/auth/totp-disable', { method: 'POST' });
     location.reload();
 }
 
-// Logo
 document.getElementById('logo-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
@@ -147,31 +151,28 @@ document.getElementById('logo-form').addEventListener('submit', async (e) => {
     const r = document.getElementById('logo-result');
     r.style.display = 'block';
     r.className = data.status === 'ok' ? 'result-box success' : 'result-box error';
-    r.textContent = data.status === 'ok' ? '✅ Logo uploaded' : '❌ Error';
+    r.textContent = data.status === 'ok' ? '✅ Логотип загружен' : '❌ Ошибка';
     if (data.status === 'ok') setTimeout(() => location.reload(), 1000);
 });
 
-// Ad-Tag
 document.getElementById('adtag-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const res = await fetch('/api/system/set-adtag', { method: 'POST', body: new FormData(e.target) });
     const data = await res.json();
     const r = document.getElementById('adtag-result');
     r.style.display = 'block'; r.className = 'result-box success';
-    r.textContent = '✅ Ad-Tag set';
+    r.textContent = '✅ Ad-Tag установлен';
 });
 
-// Domain
 document.getElementById('domain-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const res = await fetch('/api/system/rotate-domain', { method: 'POST', body: new FormData(e.target) });
     const data = await res.json();
     const r = document.getElementById('domain-result');
     r.style.display = 'block'; r.className = 'result-box success';
-    r.textContent = '✅ Domain changed to: ' + data.domain;
+    r.textContent = '✅ Домен изменён на: ' + data.domain + '. Перезапустите прокси.';
 });
 
-// Webhook
 document.getElementById('webhook-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const res = await fetch('/api/system/test-webhook', { method: 'POST', body: new FormData(e.target) });
@@ -179,21 +180,20 @@ document.getElementById('webhook-form').addEventListener('submit', async (e) => 
     const r = document.getElementById('webhook-result');
     r.style.display = 'block';
     r.className = data.status === 'ok' ? 'result-box success' : 'result-box error';
-    r.textContent = data.status === 'ok' ? '✅ Webhook works! Code: ' + data.response_code : '❌ ' + data.message;
+    r.textContent = data.status === 'ok' ? '✅ Webhook работает! Код: ' + data.response_code : '❌ ' + data.message;
 });
 
-// Speedtest
 async function runSpeedtest() {
     const r = document.getElementById('speedtest-result');
-    r.style.display = 'block'; r.textContent = 'Running... (up to 30s)';
+    r.style.display = 'block'; r.textContent = 'Запуск... (до 30 секунд)';
     const res = await fetch('/api/system/speedtest');
     const data = await res.json();
     if (data.status === 'ok') {
         r.className = 'result-box success';
         r.innerHTML = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;text-align:center;">
-            <div><div style="font-size:24px;font-weight:700;color:var(--accent);">${data.download_mbps}</div><div>⬇️ Mbps</div></div>
-            <div><div style="font-size:24px;font-weight:700;color:var(--success);">${data.upload_mbps}</div><div>⬆️ Mbps</div></div>
-            <div><div style="font-size:24px;font-weight:700;color:var(--warning);">${data.ping_ms}</div><div>📡 Ping ms</div></div>
+            <div><div style="font-size:24px;font-weight:700;color:var(--accent);">${data.download_mbps}</div><div>⬇️ Мбит/с</div></div>
+            <div><div style="font-size:24px;font-weight:700;color:var(--success);">${data.upload_mbps}</div><div>⬆️ Мбит/с</div></div>
+            <div><div style="font-size:24px;font-weight:700;color:var(--warning);">${data.ping_ms}</div><div>📡 Пинг мс</div></div>
         </div>`;
     } else { r.className = 'result-box error'; r.textContent = '❌ ' + data.message; }
 }

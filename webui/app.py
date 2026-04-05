@@ -272,6 +272,11 @@ async def http_proxy_page(request: Request):
     ctx = common_context(request)
     return templates.TemplateResponse("http_proxy.html", ctx)
 
+@app.get("/mtproto", response_class=HTMLResponse)
+async def mtproto_page(request: Request):
+    ctx = common_context(request)
+    return templates.TemplateResponse("mtproto.html", ctx)
+
 # =================== AUTH API ===================
 
 @app.post("/api/auth/login")

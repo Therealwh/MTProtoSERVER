@@ -1,13 +1,14 @@
 {% extends "base.html" %}
-{% block title %}SOCKS5 прокси - MTProtoSERVER{% endblock %}
+{% block title %}SOCKS5 - MTProtoSERVER{% endblock %}
 {% block content %}
 <div class="page-header">
     <h2>🧦 SOCKS5 прокси</h2>
-    <p>Универсальный прокси для любых приложений (Dante)</p>
+    <p>SOCKS5 — универсальный прокси-протокол, который работает с любыми приложениями: браузерами, Telegram, curl и другими. Работает на базе Dante с аутентификацией по логину и паролю.</p>
 </div>
 
 <div class="section">
     <h3>📊 Статус SOCKS5</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Информация о текущем состоянии SOCKS5 прокси. Если статус "Работает" — прокси доступен для подключений.</p>
     {% if settings.socks5_enabled %}
     <div class="proxy-card proxy-active" style="max-width:600px;">
         <div class="proxy-header">
@@ -17,6 +18,7 @@
         <div class="proxy-details">
             <div><span>Порт:</span> <strong>{{ settings.socks5_port }}</strong></div>
             <div><span>IP:</span> <strong>{{ settings.proxy_ip }}</strong></div>
+            <div><span>Логин:</span> <strong>{{ settings.socks5_user }}</strong></div>
         </div>
         <div class="proxy-link-box">
             <code>socks5://{{ settings.socks5_user }}:{{ settings.socks5_pass }}@{{ settings.proxy_ip }}:{{ settings.socks5_port }}</code>
@@ -24,36 +26,22 @@
         </div>
     </div>
     {% else %}
-    <p style="color: var(--text-secondary);">SOCKS5 прокси не установлен. Добавьте при переустановке.</p>
+    <p style="color:var(--text-secondary);">SOCKS5 прокси не установлен. Запустите установщик заново и выберите установку SOCKS5.</p>
     {% endif %}
 </div>
 
 {% if settings.socks5_enabled %}
 <div class="section">
     <h3>👥 Пользователи SOCKS5</h3>
-    <form id="add-socks-user-form" class="form-inline" style="margin-bottom:16px;">
-        <input type="text" name="user" placeholder="Логин" required class="input">
-        <input type="text" name="pass" placeholder="Пароль" required class="input">
-        <button type="submit" class="btn btn-primary">➕ Добавить</button>
-    </form>
-    <div id="socks-result" class="result-box" style="display:none;"></div>
-
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Список пользователей SOCKS5 прокси. Каждый пользователь имеет свой логин и пароль.</p>
     <div class="table-container">
         <table class="table">
-            <thead>
-                <tr>
-                    <th>Логин</th>
-                    <th>Пароль</th>
-                    <th>Подключение</th>
-                    <th>Действия</th>
-                </tr>
-            </thead>
-            <tbody id="socks-users-body">
+            <thead><tr><th>Логин</th><th>Пароль</th><th>Строка подключения</th></tr></thead>
+            <tbody>
                 <tr>
                     <td>{{ settings.socks5_user }}</td>
                     <td><code>{{ settings.socks5_pass }}</code></td>
                     <td><code>socks5://{{ settings.socks5_user }}:{{ settings.socks5_pass }}@{{ settings.proxy_ip }}:{{ settings.socks5_port }}</code></td>
-                    <td><span class="badge badge-warning">Основной</span></td>
                 </tr>
             </tbody>
         </table>
@@ -62,19 +50,20 @@
 {% endif %}
 
 <div class="section">
-    <h3>📱 Как использовать</h3>
+    <h3>📱 Как использовать SOCKS5</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Инструкции по подключению к SOCKS5 прокси из различных приложений.</p>
     <div class="tips-list">
         <div class="tip-item">
             <span class="tip-icon">🌐</span>
-            <span><strong>Браузер:</strong> Настройки → Прокси → SOCKS5 → IP:{{ settings.socks5_port }}, логин: {{ settings.socks5_user }}</span>
+            <span><strong>Браузер:</strong> Настройки → Прокси → SOCKS5 → IP: {{ settings.proxy_ip }}, порт: {{ settings.socks5_port }}, логин: {{ settings.socks5_user }}</span>
         </div>
         <div class="tip-item">
             <span class="tip-icon">📱</span>
-            <span><strong>Telegram:</strong> Настройки → Данные и память → Прокси → SOCKS5</span>
+            <span><strong>Telegram:</strong> Настройки → Данные и память → Прокси → SOCKS5 → введите данные</span>
         </div>
         <div class="tip-item">
             <span class="tip-icon">💻</span>
-            <span><strong>Системный:</strong> Настройте SOCKS5 в настройках сети вашей ОС</span>
+            <span><strong>Системный прокси:</strong> Настройте SOCKS5 в настройках сети вашей операционной системы</span>
         </div>
         <div class="tip-item">
             <span class="tip-icon">🔧</span>
@@ -82,32 +71,4 @@
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-const socksForm = document.getElementById('add-socks-user-form');
-if (socksForm) {
-    socksForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const form = e.target;
-        const formData = new FormData(form);
-        const result = document.getElementById('socks-result');
-        try {
-            const res = await fetch('/api/socks5/add-user', { method: 'POST', body: formData });
-            const data = await res.json();
-            if (data.status === 'ok') {
-                result.style.display = 'block';
-                result.className = 'result-box success';
-                result.textContent = '✅ Пользователь добавлен. Перезапустите SOCKS5 контейнер.';
-                form.reset();
-            }
-        } catch (err) {
-            result.style.display = 'block';
-            result.className = 'result-box error';
-            result.textContent = '❌ Ошибка: ' + err.message;
-        }
-    });
-}
-</script>
 {% endblock %}

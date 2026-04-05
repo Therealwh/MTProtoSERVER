@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}MTProto - MTProtoSERVER{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>🔐 Настройки MTProto</h2>
+    <p>Здесь вы управляете MTProto прокси — основным протоколом для обхода блокировок Telegram. FakeTLS маскирует трафик под обычный HTTPS, делая его неотличимым для DPI-систем.</p>
+</div>
+
+<div class="section">
+    <h3>📊 Текущие настройки MTProto</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Основные параметры вашего MTProto прокси. IP-адрес, порт, домен маскировки и Ad-Tag для монетизации.</p>
+    <div class="settings-grid">
+        <div class="setting-item">
+            <label>IP сервера</label>
+            <input type="text" value="{{ settings.proxy_ip }}" class="input" readonly>
+        </div>
+        <div class="setting-item">
+            <label>Основной порт</label>
+            <input type="text" value="{{ settings.proxy_port }}" class="input" readonly>
+        </div>
+        <div class="setting-item">
+            <label>Домен маскировки (FakeTLS)</label>
+            <input type="text" value="{{ settings.fake_domain }}" class="input" readonly>
+        </div>
+        <div class="setting-item">
+            <label>Количество прокси</label>
+            <input type="text" value="{{ settings.proxy_count }}" class="input" readonly>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h3>🔄 Сменить домен маскировки</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Если текущий домен заблокирован или вы хотите сменить маскировку. После смены нужно перезапустить прокси.</p>
+    <form id="domain-form" class="form-inline">
+        <select name="domain" class="input">
+            <option value="cloudflare.com">cloudflare.com (рекомендуется)</option>
+            <option value="1c.ru">1c.ru</option>
+            <option value="sberbank.ru">sberbank.ru</option>
+            <option value="yandex.ru">yandex.ru</option>
+            <option value="mail.ru">mail.ru</option>
+            <option value="vk.com">vk.com</option>
+            <option value="gosuslugi.ru">gosuslugi.ru</option>
+        </select>
+        <button type="submit" class="btn btn-primary">🔄 Сменить домен</button>
+    </form>
+    <div id="domain-result" class="result-box" style="display:none;"></div>
+</div>
+
+<div class="section">
+    <h3>💰 Ad-Tag (монетизация)</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Получите Ad-Tag у @MTProxyBot в Telegram и вставьте сюда. Пользователи увидят спонсорский канал, а вы будете получать доход от Telegram.</p>
+    <form id="adtag-form" class="form-inline">
+        <input type="text" name="ad_tag" placeholder="Введите Ad-Tag (hex строка)" value="{{ settings.ad_tag or '' }}" class="input" style="flex:1;">
+        <button type="submit" class="btn btn-primary">💰 Установить Ad-Tag</button>
+    </form>
+    <div id="adtag-result" class="result-box" style="display:none;"></div>
+</div>
+
+<div class="section">
+    <h3>📋 Ссылки для подключения</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Скопируйте эти ссылки и отправьте пользователям. Они откроют их в Telegram и подключатся к прокси.</p>
+    {% if settings.proxy_ip and settings.proxy_port %}
+    <div class="proxy-link-box" style="margin-bottom:8px;">
+        <code>tg://proxy?server={{ settings.proxy_ip }}&port={{ settings.proxy_port }}&secret=СЕКРЕТ_КЛИЕНТА</code>
+        <button class="btn btn-sm" onclick="navigator.clipboard.writeText('tg://proxy?server={{ settings.proxy_ip }}&port={{ settings.proxy_port }}&secret=СЕКРЕТ_КЛИЕНТА')">📋</button>
+    </div>
+    {% endif %}
+    <p style="color:var(--text-secondary);font-size:13px;">⚠️ Вместо "СЕКРЕТ_КЛИЕНТА" подставьте секрет конкретного клиента со страницы "Клиенты".</p>
+</div>
+
+<div class="section">
+    <h3>💡 Как работает FakeTLS</h3>
+    <div class="tips-list">
+        <div class="tip-item">
+            <span class="tip-icon">🛡️</span>
+            <span><strong>Маскировка:</strong> Трафик MTProto оборачивается в TLS и выглядит как обычный HTTPS к выбранному домену (например, cloudflare.com)</span>
+        </div>
+        <div class="tip-item">
+            <span class="tip-icon">🔍</span>
+            <span><strong>DPI обход:</strong> Системы глубокой инспекции пакетов не могут отличить ваш прокси от обычного посещения сайта</span>
+        </div>
+        <div class="tip-item">
+            <span class="tip-icon">🔄</span>
+            <span><strong>Ротация:</strong> Если один домен заблокируют, смените на другой — все остальные продолжат работать</span>
+        </div>
+        <div class="tip-item">
+            <span class="tip-icon">📱</span>
+            <span><strong>Подключение:</strong> В Telegram: Настройки → Данные и память → Использовать прокси → MTProto</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('domain-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    const result = document.getElementById('domain-result');
+    try {
+        const res = await fetch('/api/system/rotate-domain', { method: 'POST', body: formData });
+        const data = await res.json();
+        result.style.display = 'block';
+        result.className = 'result-box success';
+        result.textContent = '✅ Домен изменён на: ' + data.domain + '. Перезапустите прокси для применения.';
+    } catch (err) {
+        result.style.display = 'block';
+        result.className = 'result-box error';
+        result.textContent = '❌ Ошибка: ' + err.message;
+    }
+});
+
+document.getElementById('adtag-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    const result = document.getElementById('adtag-result');
+    try {
+        const res = await fetch('/api/system/set-adtag', { method: 'POST', body: formData });
+        const data = await res.json();
+        result.style.display = 'block';
+        result.className = 'result-box success';
+        result.textContent = '✅ Ad-Tag установлен';
+    } catch (err) {
+        result.style.display = 'block';
+        result.className = 'result-box error';
+        result.textContent = '❌ Ошибка: ' + err.message;
+    }
+});
+</script>
+{% endblock %}

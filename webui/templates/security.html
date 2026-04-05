@@ -3,13 +3,14 @@
 {% block content %}
 <div class="page-header">
     <h2>🛡️ Безопасность и файрвол</h2>
-    <p>Управление IP-фильтрацией, портами и ограничениями</p>
+    <p>Здесь вы управляете безопасностью: блокируете нежелательные IP-адреса, открываете/закрываете порты, настраиваете ограничение запросов и экспортируете конфигурацию.</p>
 </div>
 
 <div class="section">
-    <h3>🚫 IP Blacklist (заблокированные IP)</h3>
+    <h3>🚫 Чёрный список IP (Blacklist)</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">IP-адреса из чёрного списка не смогут подключаться к вашим прокси. Добавьте IP или подсеть (CIDR).</p>
     <form id="blacklist-form" class="form-inline" style="margin-bottom:12px;">
-        <input type="text" name="ip" placeholder="IP или CIDR (напр: 1.2.3.4 или 1.2.3.0/24)" required class="input" style="flex:1;">
+        <input type="text" name="ip" placeholder="IP или CIDR (например: 1.2.3.4 или 1.2.3.0/24)" required class="input" style="flex:1;">
         <button type="submit" class="btn btn-danger">🚫 Заблокировать</button>
     </form>
     <div id="blacklist-result" class="result-box" style="display:none;"></div>
@@ -17,7 +18,8 @@
 </div>
 
 <div class="section">
-    <h3>✅ IP Whitelist (разрешённые IP)</h3>
+    <h3>✅ Белый список IP (Whitelist)</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Только IP-адреса из белого списка смогут подключаться. Если список не пуст — все остальные будут заблокированы.</p>
     <form id="whitelist-form" class="form-inline" style="margin-bottom:12px;">
         <input type="text" name="ip" placeholder="IP или CIDR" required class="input" style="flex:1;">
         <button type="submit" class="btn btn-primary">✅ Разрешить</button>
@@ -28,6 +30,7 @@
 
 <div class="section">
     <h3>🔥 Управление портами файрвола</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Открывайте и закрывайте порты на сервере через UFW. Это управляет файрволом Linux.</p>
     <div class="form-inline" style="margin-bottom:12px;">
         <input type="number" name="port" id="fw-port" placeholder="Порт" required class="input" style="width:100px;">
         <select id="fw-action" class="input">
@@ -41,7 +44,8 @@
 </div>
 
 <div class="section">
-    <h3>⏱️ Rate Limiting</h3>
+    <h3>⏱️ Ограничение запросов (Rate Limit)</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Максимальное количество запросов в минуту. Защищает от злоупотреблений и DDoS.</p>
     <form id="ratelimit-form" class="form-inline">
         <input type="number" name="rate" value="{{ settings.rate_limit | default(100) }}" min="10" max="10000" class="input" style="width:100px;">
         <span style="color:var(--text-secondary)">запросов в минуту</span>
@@ -51,8 +55,8 @@
 </div>
 
 <div class="section">
-    <h3>📋 Экспорт конфигурации</h3>
-    <p style="color:var(--text-secondary);margin-bottom:12px;">Скачать все конфиги в ZIP архиве</p>
+    <h3>📦 Экспорт конфигурации</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Скачайте все конфигурационные файлы в ZIP-архиве. Полезно для резервного копирования или переноса на другой сервер.</p>
     <button onclick="exportConfigs()" class="btn btn-primary">📦 Скачать ZIP</button>
 </div>
 {% endblock %}
@@ -63,24 +67,18 @@ async function loadIPLists() {
     try {
         const res = await fetch('/api/security/ip-lists');
         const data = await res.json();
-        
         const bl = document.getElementById('blacklist-list');
         if (data.blacklist && data.blacklist.length > 0) {
-            bl.innerHTML = '<div class="file-list">' + data.blacklist.map(ip => 
+            bl.innerHTML = '<div class="file-list">' + data.blacklist.map(ip =>
                 `<div class="file-item"><span>🚫 ${ip}</span><button class="btn btn-sm btn-danger" onclick="removeIP('blacklist','${ip}')">🗑️ Удалить</button></div>`
             ).join('') + '</div>';
-        } else {
-            bl.innerHTML = '<p style="color:var(--text-secondary)">Blacklist пуст</p>';
-        }
-
+        } else { bl.innerHTML = '<p style="color:var(--text-secondary)">Чёрный список пуст</p>'; }
         const wl = document.getElementById('whitelist-list');
         if (data.whitelist && data.whitelist.length > 0) {
-            wl.innerHTML = '<div class="file-list">' + data.whitelist.map(ip => 
+            wl.innerHTML = '<div class="file-list">' + data.whitelist.map(ip =>
                 `<div class="file-item"><span>✅ ${ip}</span><button class="btn btn-sm btn-danger" onclick="removeIP('whitelist','${ip}')">🗑️ Удалить</button></div>`
             ).join('') + '</div>';
-        } else {
-            wl.innerHTML = '<p style="color:var(--text-secondary)">Whitelist пуст</p>';
-        }
+        } else { wl.innerHTML = '<p style="color:var(--text-secondary)">Белый список пуст</p>'; }
     } catch(e) {}
 }
 
@@ -91,21 +89,13 @@ async function addIP(type) {
     try {
         const res = await fetch(`/api/security/${type}/add`, { method: 'POST', body: formData });
         const data = await res.json();
-        result.style.display = 'block';
-        result.className = 'result-box success';
-        result.textContent = '✅ Добавлено';
-        form.reset();
-        loadIPLists();
-    } catch(e) {
-        result.style.display = 'block';
-        result.className = 'result-box error';
-        result.textContent = '❌ Ошибка';
-    }
+        result.style.display = 'block'; result.className = 'result-box success'; result.textContent = '✅ Добавлено';
+        form.reset(); loadIPLists();
+    } catch(e) { result.style.display = 'block'; result.className = 'result-box error'; result.textContent = '❌ Ошибка'; }
 }
 
 async function removeIP(type, ip) {
-    const fd = new FormData();
-    fd.append('ip', ip);
+    const fd = new FormData(); fd.append('ip', ip);
     await fetch(`/api/security/${type}/remove`, { method: 'POST', body: fd });
     loadIPLists();
 }
@@ -117,9 +107,7 @@ async function managePort() {
     const port = document.getElementById('fw-port').value;
     const action = document.getElementById('fw-action').value;
     const result = document.getElementById('fw-result');
-    const fd = new FormData();
-    fd.append('port', port);
-    fd.append('action', action);
+    const fd = new FormData(); fd.append('port', port); fd.append('action', action);
     try {
         const res = await fetch('/api/security/firewall', { method: 'POST', body: fd });
         const data = await res.json();
@@ -127,11 +115,7 @@ async function managePort() {
         result.className = 'result-box success';
         result.textContent = `✅ Порт ${port} ${action === 'allow' ? 'открыт' : 'закрыт'}`;
         loadFirewallRules();
-    } catch(e) {
-        result.style.display = 'block';
-        result.className = 'result-box error';
-        result.textContent = '❌ Ошибка: ' + e.message;
-    }
+    } catch(e) { result.style.display = 'block'; result.className = 'result-box error'; result.textContent = '❌ Ошибка: ' + e.message; }
 }
 
 async function loadFirewallRules() {
@@ -140,38 +124,26 @@ async function loadFirewallRules() {
         const data = await res.json();
         const el = document.getElementById('fw-rules');
         if (data.rules && data.rules.length > 0) {
-            el.innerHTML = '<div class="file-list" style="margin-top:12px;">' + data.rules.map(r => 
+            el.innerHTML = '<div class="file-list" style="margin-top:12px;">' + data.rules.map(r =>
                 `<div class="file-item"><span>${r}</span></div>`
             ).join('') + '</div>';
-        } else {
-            el.innerHTML = '<p style="color:var(--text-secondary);margin-top:12px;">Нет правил</p>';
-        }
+        } else { el.innerHTML = '<p style="color:var(--text-secondary);margin-top:12px;">Нет правил</p>'; }
     } catch(e) {}
 }
 
 document.getElementById('ratelimit-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const form = e.target;
-    const formData = new FormData(form);
+    const formData = new FormData(e.target);
     const result = document.getElementById('ratelimit-result');
     try {
         const res = await fetch('/api/security/ratelimit', { method: 'POST', body: formData });
         const data = await res.json();
-        result.style.display = 'block';
-        result.className = 'result-box success';
-        result.textContent = '✅ Rate limit обновлён';
-    } catch(e) {
-        result.style.display = 'block';
-        result.className = 'result-box error';
-        result.textContent = '❌ Ошибка';
-    }
+        result.style.display = 'block'; result.className = 'result-box success'; result.textContent = '✅ Лимит обновлён';
+    } catch(e) { result.style.display = 'block'; result.className = 'result-box error'; result.textContent = '❌ Ошибка'; }
 });
 
-async function exportConfigs() {
-    window.location.href = '/api/security/export';
-}
+async function exportConfigs() { window.location.href = '/api/security/export'; }
 
-loadIPLists();
-loadFirewallRules();
+loadIPLists(); loadFirewallRules();
 </script>
 {% endblock %}

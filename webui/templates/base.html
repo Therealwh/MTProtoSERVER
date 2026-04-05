@@ -19,16 +19,19 @@
         </div>
         <nav class="sidebar-nav">
             <a href="/" class="nav-link {% if request.url.path == '/' %}active{% endif %}">
-                <span class="nav-icon">📊</span><span data-i18n="dashboard">Дашборд</span>
+                <span class="nav-icon">📊</span><span>Дашборд</span>
             </a>
             <a href="/clients" class="nav-link {% if request.url.path == '/clients' %}active{% endif %}">
-                <span class="nav-icon">👥</span><span data-i18n="clients">Клиенты</span>
+                <span class="nav-icon">👥</span><span>Клиенты</span>
             </a>
             <a href="/nodes" class="nav-link {% if request.url.path == '/nodes' %}active{% endif %}">
-                <span class="nav-icon">🖥️</span><span data-i18n="nodes">Ноды</span>
+                <span class="nav-icon">🖥️</span><span>Ноды</span>
             </a>
             <a href="/stats" class="nav-link {% if request.url.path == '/stats' %}active{% endif %}">
-                <span class="nav-icon">📈</span><span data-i18n="stats">Статистика</span>
+                <span class="nav-icon">📈</span><span>Статистика</span>
+            </a>
+            <a href="/mtproto" class="nav-link {% if request.url.path == '/mtproto' %}active{% endif %}">
+                <span class="nav-icon">🔐</span><span>MTProto</span>
             </a>
             <a href="/socks5" class="nav-link {% if request.url.path == '/socks5' %}active{% endif %}">
                 <span class="nav-icon">🧦</span><span>SOCKS5</span>
@@ -37,23 +40,20 @@
                 <span class="nav-icon">🌐</span><span>HTTP/HTTPS</span>
             </a>
             <a href="/logs" class="nav-link {% if request.url.path == '/logs' %}active{% endif %}">
-                <span class="nav-icon">📋</span><span data-i18n="logs">Логи</span>
+                <span class="nav-icon">📋</span><span>Логи</span>
             </a>
             <a href="/backup" class="nav-link {% if request.url.path == '/backup' %}active{% endif %}">
-                <span class="nav-icon">💾</span><span data-i18n="backup">Бэкап</span>
+                <span class="nav-icon">💾</span><span>Бэкап</span>
             </a>
             <a href="/security" class="nav-link {% if request.url.path == '/security' %}active{% endif %}">
-                <span class="nav-icon">🛡️</span><span data-i18n="security">Безопасность</span>
+                <span class="nav-icon">🛡️</span><span>Безопасность</span>
             </a>
             <a href="/settings" class="nav-link {% if request.url.path == '/settings' %}active{% endif %}">
-                <span class="nav-icon">⚙️</span><span data-i18n="settings">Настройки</span>
+                <span class="nav-icon">⚙️</span><span>Настройки</span>
             </a>
         </nav>
         <div class="sidebar-footer">
-            <button onclick="toggleTheme()" class="theme-btn" title="Toggle theme">🌓</button>
-            <button onclick="toggleLang()" class="lang-btn" title="Switch language">
-                <span id="current-lang">RU</span>
-            </button>
+            <button onclick="toggleTheme()" class="theme-btn" title="Сменить тему">🌓</button>
         </div>
     </div>
 

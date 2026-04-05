@@ -1,88 +1,90 @@
 {% extends "base.html" %}
-{% block title %}Clients - MTProtoSERVER{% endblock %}
+{% block title %}Клиенты - MTProtoSERVER{% endblock %}
 {% block content %}
 <div class="page-header">
-    <h2>👥 Client Management</h2>
-    <p>Create, manage and monitor MTProto proxy clients</p>
+    <h2>👥 Управление клиентами</h2>
+    <p>Здесь вы создаёте и управляете клиентами MTProto прокси. Каждый клиент — это отдельная ссылка для подключения к Telegram через ваш прокси. Вы можете установить лимиты трафика, количества устройств и срок действия.</p>
 </div>
 
 <div class="section">
-    <h3>➕ Add Client</h3>
+    <h3>➕ Добавить клиента</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Создайте нового клиента с уникальной ссылкой. Порт и секрет генерируются автоматически. Вы можете выбрать ноду, установить лимиты и срок действия.</p>
     <form id="add-client-form" class="form-grid">
         <div class="form-group">
-            <label>Name</label>
-            <input type="text" name="label" placeholder="client-name" required class="input">
+            <label>Имя клиента</label>
+            <input type="text" name="label" placeholder="например: user1" required class="input">
         </div>
         <div class="form-group">
-            <label>Node</label>
+            <label>Нода</label>
             <select name="node_id" class="input">
-                <option value="0">Local (this server)</option>
+                <option value="0">Локальная (этот сервер)</option>
                 {% for node in nodes %}
                 <option value="{{ node.id }}">{{ node.country }} {{ node.name }} ({{ node.ip }})</option>
                 {% endfor %}
             </select>
         </div>
         <div class="form-group">
-            <label>Domain</label>
+            <label>Домен маскировки</label>
             <input type="text" name="domain" value="{{ settings.fake_domain | default('cloudflare.com') }}" class="input">
         </div>
         <div class="form-group">
-            <label>Traffic Limit (GB, 0=unlimited)</label>
+            <label>Лимит трафика (ГБ, 0 = без лимита)</label>
             <input type="number" name="traffic_limit_gb" value="0" min="0" step="0.5" class="input">
         </div>
         <div class="form-group">
-            <label>Device Limit (0=unlimited)</label>
+            <label>Лимит устройств (0 = без лимита)</label>
             <input type="number" name="device_limit" value="0" min="0" class="input">
         </div>
         <div class="form-group">
-            <label>Expiry (days, 0=never)</label>
+            <label>Срок действия (дни, 0 = бессрочно)</label>
             <input type="number" name="expiry_days" value="0" min="0" class="input">
         </div>
         <div class="form-group">
-            <label>Auto-reset Traffic</label>
+            <label>Автосброс трафика</label>
             <select name="auto_reset" class="input">
-                <option value="never">Never</option>
-                <option value="daily">Daily</option>
-                <option value="monthly">Monthly</option>
-                <option value="yearly">Yearly</option>
+                <option value="never">Никогда</option>
+                <option value="daily">Ежедневно</option>
+                <option value="monthly">Ежемесячно</option>
+                <option value="yearly">Ежегодно</option>
             </select>
         </div>
         <div class="form-group" style="display:flex;align-items:flex-end;">
-            <button type="submit" class="btn btn-primary">➕ Add Client</button>
+            <button type="submit" class="btn btn-primary">➕ Добавить клиента</button>
         </div>
     </form>
     <div id="add-result" class="result-box" style="display:none;"></div>
 </div>
 
 <div class="section">
-    <h3>📋 All Clients ({{ clients | length }})</h3>
+    <h3>📋 Все клиенты ({{ clients | length }})</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Таблица всех клиентов с информацией о трафике, устройствах, сроке действия и графиком подключений за 24 часа. Кнопки действий: QR-код, копировать ссылку, ротация секрета, сброс трафика, вкл/выкл, удаление.</p>
     <div class="table-container">
         <table class="table">
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Name</th>
-                    <th>Status</th>
-                    <th>Port</th>
-                    <th>Domain</th>
+                    <th>Имя</th>
+                    <th>Статус</th>
+                    <th>Порт</th>
+                    <th>Домен</th>
                     <th>RX / TX</th>
-                    <th>IPs</th>
-                    <th>Limits</th>
-                    <th>Expiry</th>
-                    <th>24h</th>
-                    <th>Actions</th>
+                    <th>IP</th>
+                    <th>Лимиты</th>
+                    <th>Срок</th>
+                    <th>24ч</th>
+                    <th>Действия</th>
                 </tr>
             </thead>
             <tbody>
                 {% for c in clients %}
-                <tr class="{% if not c.enabled %}row-disabled{% endif %} {% if c.expiry_date and c.expiry_date < now %}row-expired{% endif %}">
+                <tr class="{% if not c.enabled %}row-disabled{% endif %}">
                     <td>{{ c.id }}</td>
                     <td><strong>{{ c.label }}</strong></td>
                     <td>
                         {% if c.enabled %}
-                        <span class="badge badge-success">Active</span>
+                        <span class="badge badge-success">Активен</span>
                         {% else %}
-                        <span class="badge badge-danger">Disabled</span>
+                        <span class="badge badge-danger">Отключён</span>
                         {% endif %}
                     </td>
                     <td>{{ c.port }}</td>
@@ -96,17 +98,15 @@
                     <td>{{ c.unique_ips | default(0) }}</td>
                     <td>
                         {% if c.traffic_limit_gb > 0 %}
-                        <span title="Traffic: {{ c.traffic_limit_gb }}GB">💾{{ c.traffic_limit_gb }}G</span>
+                        <span title="Трафик: {{ c.traffic_limit_gb }} ГБ">💾{{ c.traffic_limit_gb }}G</span>
                         {% endif %}
                         {% if c.device_limit > 0 %}
-                        <span title="Devices: {{ c.device_limit }}">📱{{ c.device_limit }}</span>
+                        <span title="Устройств: {{ c.device_limit }}">📱{{ c.device_limit }}</span>
                         {% endif %}
                     </td>
                     <td>
                         {% if c.expiry_date %}
-                        <span class="{% if c.expiry_date < now %}badge badge-danger{% else %}badge badge-warning{% endif %}">
-                            {{ c.expiry_date }}
-                        </span>
+                        <span class="badge badge-warning">{{ c.expiry_date }}</span>
                         {% else %}
                         <span style="color:var(--text-secondary)">∞</span>
                         {% endif %}
@@ -115,14 +115,14 @@
                         <canvas id="spark-{{ c.id }}" width="60" height="20"></canvas>
                     </td>
                     <td class="actions-cell">
-                        <button class="btn btn-sm" onclick="showQR('{{ c.label }}', '{{ settings.proxy_ip }}', {{ c.port }}, '{{ c.secret }}')" title="QR">📱</button>
-                        <button class="btn btn-sm" onclick="copyLink('{{ settings.proxy_ip }}', {{ c.port }}, '{{ c.secret }}')" title="Copy link">📋</button>
-                        <button class="btn btn-sm" onclick="rotateClient({{ c.id }})" title="Rotate secret">🔄</button>
-                        <button class="btn btn-sm" onclick="resetTraffic({{ c.id }})" title="Reset traffic">📊</button>
-                        <button class="btn btn-sm" onclick="toggleClient({{ c.id }})" title="Toggle">
+                        <button class="btn btn-sm" onclick="showQR('{{ c.label }}', '{{ settings.proxy_ip }}', {{ c.port }}, '{{ c.secret }}')" title="Показать QR-код">📱</button>
+                        <button class="btn btn-sm" onclick="copyLink('{{ settings.proxy_ip }}', {{ c.port }}, '{{ c.secret }}')" title="Копировать ссылку">📋</button>
+                        <button class="btn btn-sm" onclick="rotateClient({{ c.id }})" title="Ротировать секрет (старая ссылка перестанет работать)">🔄</button>
+                        <button class="btn btn-sm" onclick="resetTraffic({{ c.id }})" title="Сбросить счётчики трафика">📊</button>
+                        <button class="btn btn-sm" onclick="toggleClient({{ c.id }})" title="Включить/Отключить">
                             {% if c.enabled %}⏸️{% else %}▶️{% endif %}
                         </button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteClient({{ c.id }})" title="Delete">🗑️</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteClient({{ c.id }})" title="Удалить клиента">🗑️</button>
                     </td>
                 </tr>
                 {% endfor %}
@@ -131,14 +131,13 @@
     </div>
 </div>
 
-<!-- QR Modal -->
 <div id="qr-modal" class="modal" style="display:none;">
     <div class="modal-content">
         <span class="modal-close" onclick="closeModal()">&times;</span>
-        <h3 id="qr-title">QR Code</h3>
+        <h3 id="qr-title">QR-код</h3>
         <img id="qr-img" src="" alt="QR" style="max-width:250px;">
         <p id="qr-link" style="word-break:break-all;font-size:12px;margin-top:12px;"></p>
-        <button class="btn btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('qr-link').textContent)">📋 Copy</button>
+        <button class="btn btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('qr-link').textContent)">📋 Копировать</button>
     </div>
 </div>
 {% endblock %}
@@ -158,26 +157,26 @@ document.getElementById('add-client-form').addEventListener('submit', async (e) 
         if (data.status === 'ok') {
             result.style.display = 'block';
             result.className = 'result-box success';
-            result.innerHTML = `<p>✅ Client added! Port: ${data.port}</p>
-                <p>Link: <code>${data.link}</code></p>
-                <button class="btn btn-sm" onclick="navigator.clipboard.writeText('${data.link}')">📋 Copy</button>`;
+            result.innerHTML = `<p>✅ Клиент добавлен! Порт: ${data.port}</p>
+                <p>Ссылка: <code>${data.link}</code></p>
+                <button class="btn btn-sm" onclick="navigator.clipboard.writeText('${data.link}')">📋 Копировать</button>`;
             setTimeout(() => location.reload(), 2000);
         } else {
             result.style.display = 'block';
             result.className = 'result-box error';
-            result.textContent = '❌ Error: ' + (data.message || 'Unknown');
+            result.textContent = '❌ Ошибка: ' + (data.message || 'Неизвестная');
         }
     } catch (err) {
         result.style.display = 'block';
         result.className = 'result-box error';
-        result.textContent = '❌ Error: ' + err.message;
+        result.textContent = '❌ Ошибка: ' + err.message;
     }
 });
 
 function copyLink(ip, port, secret) {
     const link = `tg://proxy?server=${ip}&port=${port}&secret=${secret}`;
     navigator.clipboard.writeText(link);
-    showToast('Link copied!');
+    showToast('Ссылка скопирована!');
 }
 
 function showQR(label, ip, port, secret) {
@@ -192,31 +191,30 @@ function closeModal() { document.getElementById('qr-modal').style.display = 'non
 
 async function toggleClient(id) {
     await fetch(`/api/clients/${id}/toggle`, { method: 'POST' });
-    showToast('✅ Status changed');
+    showToast('✅ Статус изменён');
     setTimeout(() => location.reload(), 1000);
 }
 
 async function deleteClient(id) {
-    if (!confirm('Delete this client?')) return;
+    if (!confirm('Удалить этого клиента?')) return;
     await fetch(`/api/clients/${id}/delete`, { method: 'POST' });
-    showToast('✅ Client deleted');
+    showToast('✅ Клиент удалён');
     setTimeout(() => location.reload(), 1000);
 }
 
 async function rotateClient(id) {
-    if (!confirm('Rotate secret? Old links will stop working!')) return;
+    if (!confirm('Ротировать секрет? Старая ссылка перестанет работать!')) return;
     const res = await fetch(`/api/clients/${id}/rotate`, { method: 'POST' });
     const data = await res.json();
-    if (data.status === 'ok') { showToast('✅ Secret rotated'); setTimeout(() => location.reload(), 1000); }
+    if (data.status === 'ok') { showToast('✅ Секрет ротирован'); setTimeout(() => location.reload(), 1000); }
 }
 
 async function resetTraffic(id) {
     await fetch(`/api/clients/${id}/reset-traffic`, { method: 'POST' });
-    showToast('✅ Traffic reset');
+    showToast('✅ Трафик сброшен');
     setTimeout(() => location.reload(), 1000);
 }
 
-// Draw sparklines
 document.addEventListener('DOMContentLoaded', () => {
     {% for c in clients %}
     {% if c.history %}
