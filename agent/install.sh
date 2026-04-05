@@ -47,6 +47,8 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - /proc:/proc:ro
       - ./agent.py:/app/agent.py:ro
+      - /usr/bin/docker:/usr/bin/docker:ro
+      - /usr/libexec/docker:/usr/libexec/docker:ro
     working_dir: /app
     environment:
       - AGENT_TOKEN=${AGENT_TOKEN}
@@ -54,17 +56,19 @@ services:
       sh -c "pip install -q fastapi uvicorn && python -m uvicorn agent:app --host 0.0.0.0 --port ${AGENT_PORT}"
 EOF
 
-# Создаём agent.py — читает /proc/net/tcp напрямую (host network)
+# Создаём agent.py — использует Docker API через HTTP (не CLI)
 cat > "$AGENT_DIR/agent.py" << 'AGENTEOF'
 """
 MTG Agent — мониторинг MTProto прокси
-Запускается с pid:host + network_mode:host для прямого доступа к /proc/net/tcp
+Использует Docker HTTP API (не CLI) для работы в Alpine
 """
 from fastapi import FastAPI, Header, HTTPException
-import subprocess
+import http.client
+import json
 import os
 import time
 import threading
+import urllib.request
 
 app = FastAPI(title="MTG Agent")
 AGENT_TOKEN = os.environ.get("AGENT_TOKEN", "")
@@ -72,31 +76,50 @@ CACHE = {}
 CACHE_TIME = 0
 CACHE_TTL = 5
 
+DOCKER_SOCK = '/var/run/docker.sock'
+
+def docker_api(method, path):
+    """Call Docker API via Unix socket"""
+    conn = http.client.HTTPConnection('localhost', timeout=10)
+    conn.sock = None
+    import socket
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    sock.connect(DOCKER_SOCK)
+    conn.sock = sock
+    conn.request(method, path)
+    resp = conn.getresponse()
+    data = resp.read().decode()
+    conn.close()
+    if resp.status >= 400:
+        return None
+    try:
+        return json.loads(data)
+    except:
+        return None
+
 def require_token(x_token: str = Header(...)):
     if x_token != AGENT_TOKEN:
         raise HTTPException(status_code=401, detail="Invalid token")
 
 def get_proxy_containers():
+    """Get all MTProto proxy containers via Docker API"""
     try:
-        r = subprocess.run(
-            ['docker', 'ps', '--filter', 'name=mtproto-proxy', '--format', '{{.Names}}|{{.ID}}|{{.Status}}'],
-            capture_output=True, text=True, timeout=10
-        )
-        containers = []
-        for line in r.stdout.strip().split('\n'):
-            if line:
-                parts = line.split('|')
-                if len(parts) >= 3:
-                    containers.append({'name': parts[0], 'id': parts[1], 'status': parts[2]})
-        return containers
+        containers = docker_api('GET', '/containers/json?filters={"name":{"mtproto-proxy":true}}')
+        if containers:
+            return [{'name': c['Names'][0].lstrip('/'), 'id': c['Id'][:12], 'status': c['Status']} for c in containers]
     except:
-        return []
+        pass
+    return []
 
 def get_container_port(name):
+    """Get the host port for a container via Docker API"""
     try:
-        r = subprocess.run(['docker', 'port', name], capture_output=True, text=True, timeout=5)
-        if r.stdout.strip():
-            return int(r.stdout.strip().split(':')[-1])
+        info = docker_api('GET', f'/containers/{name}/json')
+        if info:
+            ports = info.get('HostConfig', {}).get('PortBindings', {})
+            for p in ports:
+                if ports[p]:
+                    return int(ports[p][0]['HostPort'])
     except:
         pass
     return 443
@@ -125,19 +148,20 @@ def get_connections_for_port(port):
     return {'unique_ips': len(seen_ips), 'connected_ips': sorted(list(seen_ips)), 'total_connections': total}
 
 def get_traffic_for_container(name):
+    """Get traffic stats via Docker API stats endpoint"""
     try:
-        r = subprocess.run(['docker', 'inspect', '-f', '{{.State.Pid}}', name],
-                          capture_output=True, text=True, timeout=5)
-        if r.returncode == 0 and r.stdout.strip():
-            pid = r.stdout.strip()
-            dev_file = f'/proc/{pid}/net/dev'
-            if os.path.exists(dev_file):
-                with open(dev_file, 'r') as f:
-                    for line in f:
-                        if 'eth0' in line or 'veth' in line:
-                            parts = line.strip().split()
-                            if len(parts) >= 10:
-                                return {'rx_bytes': int(parts[1]), 'tx_bytes': int(parts[9])}
+        info = docker_api('GET', f'/containers/{name}/json')
+        if info:
+            pid = info.get('State', {}).get('Pid', 0)
+            if pid:
+                dev_file = f'/proc/{pid}/net/dev'
+                if os.path.exists(dev_file):
+                    with open(dev_file, 'r') as f:
+                        for line in f:
+                            if 'eth0' in line or 'veth' in line:
+                                parts = line.strip().split()
+                                if len(parts) >= 10:
+                                    return {'rx_bytes': int(parts[1]), 'tx_bytes': int(parts[9])}
     except:
         pass
     return {'rx_bytes': 0, 'tx_bytes': 0}
