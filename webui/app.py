@@ -36,27 +36,48 @@ def get_settings():
 def get_users():
     return load_json(USERS_FILE)
 
-def save_users(users):
-    save_json(USERS_FILE, users)
+def save_users(data):
+    save_json(USERS_FILE, data)
 
 def get_proxies():
     return load_json(PROXIES_FILE)
 
-def save_proxies(proxies):
-    save_json(PROXIES_FILE, proxies)
+def save_proxies(data):
+    save_json(PROXIES_FILE, data)
 
 def get_proxy_link(ip, port, secret):
     return f"tg://proxy?server={ip}&port={port}&secret={secret}"
 
-def get_proxy_stats():
+def run_docker_cmd(args):
     try:
         result = subprocess.run(
-            ['docker', 'compose', 'ps'],
-            capture_output=True, text=True, cwd='/opt/mtprotoserver'
+            ['docker', 'compose'] + args,
+            capture_output=True, text=True, cwd='/opt/mtprotoserver',
+            timeout=30
         )
-        return result.stdout
+        return result.stdout if result.returncode == 0 else result.stderr
+    except Exception as e:
+        return str(e)
+
+def get_docker_status():
+    containers = []
+    try:
+        result = subprocess.run(
+            ['docker', 'ps', '--format', '{{.Names}}|{{.Status}}|{{.Ports}}'],
+            capture_output=True, text=True, timeout=10
+        )
+        if result.stdout.strip():
+            for line in result.stdout.strip().split('\n'):
+                parts = line.split('|')
+                if len(parts) >= 3:
+                    containers.append({
+                        'name': parts[0],
+                        'status': parts[1],
+                        'ports': parts[2]
+                    })
     except:
-        return "Недоступно"
+        pass
+    return containers
 
 def get_system_info():
     mem = psutil.virtual_memory()
@@ -71,17 +92,20 @@ def get_system_info():
         'disk_used_gb': round(disk.used / (1024**3), 1),
     }
 
+# =================== PAGES ===================
+
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
     settings = get_settings()
     users_data = get_users()
     proxies_data = get_proxies()
     system = get_system_info()
+    containers = get_docker_status()
     users = users_data.get('users', [])
     proxies = proxies_data.get('proxies', [])
     active_users = len([u for u in users if u.get('enabled', True)])
-    total_traffic = sum(u.get('traffic_in', 0) + u.get('traffic_out', 0) for u in users)
     active_proxies = len([p for p in proxies if p.get('enabled', True)])
+    total_traffic = sum(u.get('traffic_in', 0) + u.get('traffic_out', 0) for u in users)
 
     return templates.TemplateResponse("index.html", {
         "request": request,
@@ -92,7 +116,8 @@ async def dashboard(request: Request):
         "system": system,
         "proxies": proxies,
         "active_proxies": active_proxies,
-        "proxy_count": len(proxies)
+        "proxy_count": len(proxies),
+        "containers": containers
     })
 
 @app.get("/users", response_class=HTMLResponse)
@@ -145,12 +170,16 @@ async def settings_page(request: Request):
 @app.get("/diagnostics", response_class=HTMLResponse)
 async def diagnostics_page(request: Request):
     system = get_system_info()
-    proxy_status = get_proxy_stats()
+    containers = get_docker_status()
+    logs = run_docker_cmd(['logs', '--tail', '50'])
     return templates.TemplateResponse("diagnostics.html", {
         "request": request,
         "system": system,
-        "proxy_status": proxy_status
+        "containers": containers,
+        "logs": logs
     })
+
+# =================== API: USERS ===================
 
 @app.post("/api/users/add")
 async def add_user(request: Request):
@@ -206,22 +235,21 @@ async def add_user(request: Request):
 @app.post("/api/users/{user_id}/toggle")
 async def toggle_user(user_id: int):
     users_data = get_users()
-    users = users_data.get('users', [])
-    for u in users:
+    for u in users_data.get('users', []):
         if u['id'] == user_id:
             u['enabled'] = not u.get('enabled', True)
             break
     save_users(users_data)
-    return JSONResponse({'status': 'ok'})
+    return JSONResponse({'status': 'ok', 'enabled': u['enabled']})
 
 @app.post("/api/users/{user_id}/delete")
 async def delete_user(user_id: int):
     users_data = get_users()
-    users = users_data.get('users', [])
-    users = [u for u in users if u['id'] != user_id]
-    users_data['users'] = users
+    users_data['users'] = [u for u in users_data.get('users', []) if u['id'] != user_id]
     save_users(users_data)
     return JSONResponse({'status': 'ok'})
+
+# =================== API: PROXIES ===================
 
 @app.post("/api/proxies/add")
 async def add_proxy(request: Request):
@@ -256,7 +284,6 @@ async def add_proxy(request: Request):
     proxies_data['next_id'] = next_id + 1
     save_proxies(proxies_data)
 
-    # Обновляем proxy_count в settings
     settings = get_settings()
     settings['proxy_count'] = len(proxies)
     save_json(SETTINGS_FILE, settings)
@@ -267,27 +294,57 @@ async def add_proxy(request: Request):
 @app.post("/api/proxies/{proxy_id}/toggle")
 async def toggle_proxy(proxy_id: int):
     proxies_data = get_proxies()
-    proxies = proxies_data.get('proxies', [])
-    for p in proxies:
+    for p in proxies_data.get('proxies', []):
         if p['id'] == proxy_id:
             p['enabled'] = not p.get('enabled', True)
             break
     save_proxies(proxies_data)
-    return JSONResponse({'status': 'ok'})
+    return JSONResponse({'status': 'ok', 'enabled': p['enabled']})
 
 @app.post("/api/proxies/{proxy_id}/delete")
 async def delete_proxy(proxy_id: int):
     proxies_data = get_proxies()
-    proxies = proxies_data.get('proxies', [])
-    proxies = [p for p in proxies if p['id'] != proxy_id]
-    proxies_data['proxies'] = proxies
-
+    proxies_data['proxies'] = [p for p in proxies_data.get('proxies', []) if p['id'] != proxy_id]
     settings = get_settings()
-    settings['proxy_count'] = len(proxies)
+    settings['proxy_count'] = len(proxies_data['proxies'])
     save_json(SETTINGS_FILE, settings)
-
     save_proxies(proxies_data)
     return JSONResponse({'status': 'ok'})
+
+@app.post("/api/proxies/{proxy_id}/rotate-secret")
+async def rotate_secret(proxy_id: int):
+    proxies_data = get_proxies()
+    for p in proxies_data.get('proxies', []):
+        if p['id'] == proxy_id:
+            domain_hex = p['domain'].encode().hex()
+            random_part = sec.token_hex(14)
+            p['secret'] = f"ee{random_part}{domain_hex}"
+            break
+    save_proxies(proxies_data)
+    settings = get_settings()
+    link = get_proxy_link(settings.get('proxy_ip', '0.0.0.0'), p['port'], p['secret'])
+    return JSONResponse({'status': 'ok', 'secret': p['secret'], 'link': link})
+
+# =================== API: SYSTEM ===================
+
+@app.post("/api/system/restart")
+async def restart_system():
+    msg = run_docker_cmd(['restart'])
+    return JSONResponse({'status': 'ok', 'message': msg})
+
+@app.post("/api/system/restart-container")
+async def restart_container(request: Request):
+    form = await request.form()
+    name = form.get('name', '')
+    if name:
+        msg = run_docker_cmd(['restart', name])
+        return JSONResponse({'status': 'ok', 'message': msg})
+    return JSONResponse({'status': 'error', 'message': 'No name'}, status_code=400)
+
+@app.get("/api/system/logs")
+async def get_logs():
+    logs = run_docker_cmd(['logs', '--tail', '100'])
+    return JSONResponse({'status': 'ok', 'logs': logs})
 
 @app.get("/api/status")
 async def api_status():
@@ -295,6 +352,7 @@ async def api_status():
     system = get_system_info()
     users_data = get_users()
     proxies_data = get_proxies()
+    containers = get_docker_status()
     users = users_data.get('users', [])
     proxies = proxies_data.get('proxies', [])
     return JSONResponse({
@@ -303,7 +361,8 @@ async def api_status():
         'active_proxies': len([p for p in proxies if p.get('enabled')]),
         'users_count': len(users),
         'active_users': len([u for u in users if u.get('enabled')]),
-        'system': system
+        'system': system,
+        'containers': containers
     })
 
 @app.get("/api/metrics")

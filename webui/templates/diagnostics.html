@@ -3,11 +3,11 @@
 {% block content %}
 <div class="page-header">
     <h2>🔧 Диагностика</h2>
-    <p>Проверка состояния системы и прокси</p>
+    <p>Проверка состояния системы и контейнеров</p>
 </div>
 
 <div class="section">
-    <h3>🖥️ Системная информация</h3>
+    <h3>🖥️ Ресурсы сервера</h3>
     <div class="system-info">
         <div class="info-row">
             <span>CPU:</span>
@@ -34,17 +34,41 @@
 </div>
 
 <div class="section">
-    <h3>📡 Статус Docker контейнеров</h3>
-    <pre class="log-box">{{ proxy_status }}</pre>
+    <h3>📡 Docker контейнеры</h3>
+    {% if containers %}
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Контейнер</th>
+                    <th>Статус</th>
+                    <th>Порты</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in containers %}
+                <tr>
+                    <td><strong>{{ c.name }}</strong></td>
+                    <td><span class="badge badge-success">{{ c.status }}</span></td>
+                    <td><code>{{ c.ports }}</code></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color: var(--text-secondary);">Нет запущенных контейнеров</p>
+    {% endif %}
+</div>
+
+<div class="section">
+    <h3>📋 Логи (последние 50 строк)</h3>
+    <pre class="log-box">{{ logs or 'Нет логов' }}</pre>
 </div>
 
 <div class="section">
     <h3>🔍 Проверки</h3>
     <div class="checks-list">
-        <div class="check-item">
-            <span class="check-icon">✅</span>
-            <span>Docker запущен</span>
-        </div>
         <div class="check-item">
             <span class="check-icon">✅</span>
             <span>Web UI работает</span>
@@ -53,6 +77,17 @@
             <span class="check-icon">✅</span>
             <span>Конфигурация загружена</span>
         </div>
+        {% if containers %}
+        <div class="check-item">
+            <span class="check-icon">✅</span>
+            <span>Docker контейнеры запущены ({{ containers | length }})</span>
+        </div>
+        {% else %}
+        <div class="check-item">
+            <span class="check-icon">❌</span>
+            <span>Docker контейнеры не запущены</span>
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

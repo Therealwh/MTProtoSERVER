@@ -926,6 +926,14 @@ step_summary() {
     print_sep
     echo ""
 
+    echo -e "${WHITE}${E_NET}  🌐 ПАНЕЛЬ УПРАВЛЕНИЯ:${NC}"
+    echo -e "${CYAN}   http://${SERVER_IP}:${WEBUI_PORT}${NC}"
+    echo ""
+    echo -e "${WHITE}   Откройте эту ссылку в браузере для управления всеми прокси${NC}"
+    echo ""
+    print_sep
+    echo ""
+
     echo -e "${WHITE}${E_STAR}  ССЫЛКИ ДЛЯ ПОДКЛЮЧЕНИЯ (${PROXY_COUNT} прокси):${NC}"
     echo ""
     for i in $(seq 0 $((PROXY_COUNT - 1))); do
@@ -935,14 +943,10 @@ step_summary() {
         echo ""
     done
 
-    echo -e "${WHITE}${E_NET}  Web Панель управления:${NC}"
-    echo -e "${CYAN}   http://${SERVER_IP}:${WEBUI_PORT}${NC}"
-    echo ""
-
     if [[ "$BOT_ENABLED" == "yes" ]]; then
         echo -e "${WHITE}${E_BOT}  Telegram бот:${NC}"
         echo -e "${CYAN}   Токен: ${BOT_TOKEN}${NC}"
-        echo -e "   Запустите бота в Telegram"
+        echo -e "   Откройте бота в Telegram и напишите /start"
         echo ""
     fi
 
@@ -951,19 +955,23 @@ step_summary() {
     echo ""
 
     echo -e "${WHITE}${E_GEAR}  Полезные команды:${NC}"
-    echo -e "   ${E_ARROW} Просмотр логов:      ${CYAN}cd $INSTALL_DIR && docker compose logs -f${NC}"
-    echo -e "   ${E_ARROW} Перезапуск:          ${CYAN}cd $INSTALL_DIR && docker compose restart${NC}"
-    echo -e "   ${E_ARROW} Остановка:           ${CYAN}cd $INSTALL_DIR && docker compose down${NC}"
-    echo -e "   ${E_ARROW} Обновление:          ${CYAN}cd $INSTALL_DIR && docker compose pull && docker compose up -d${NC}"
-    echo -e "   ${E_ARROW} Статус:              ${CYAN}cd $INSTALL_DIR && docker compose ps${NC}"
-    echo -e "   ${E_ARROW} Добавить прокси:     ${CYAN}bash $INSTALL_DIR/scripts/add-proxy.sh${NC}"
-    echo -e "   ${E_ARROW} Удалить прокси:      ${CYAN}bash $INSTALL_DIR/scripts/remove-proxy.sh <label>${NC}"
+    echo -e "   ${E_ARROW} Логи:              ${CYAN}cd $INSTALL_DIR && docker compose logs -f${NC}"
+    echo -e "   ${E_ARROW} Перезапуск:        ${CYAN}cd $INSTALL_DIR && docker compose restart${NC}"
+    echo -e "   ${E_ARROW} Остановка:         ${CYAN}cd $INSTALL_DIR && docker compose down${NC}"
+    echo -e "   ${E_ARROW} Обновление:        ${CYAN}cd $INSTALL_DIR && docker compose pull && docker compose up -d${NC}"
+    echo -e "   ${E_ARROW} Статус:            ${CYAN}cd $INSTALL_DIR && docker compose ps${NC}"
+    echo -e "   ${E_ARROW} Добавить прокси:   ${CYAN}bash $INSTALL_DIR/scripts/add-proxy.sh${NC}"
+    echo -e "   ${E_ARROW} Удалить прокси:    ${CYAN}bash $INSTALL_DIR/scripts/remove-proxy.sh <label>${NC}"
     echo ""
 
     echo -e "${WHITE}${E_SHIELD}  Безопасность:${NC}"
     echo -e "   ${E_WARN}  Не публикуйте ссылки на прокси!"
     for i in $(seq 0 $((PROXY_COUNT - 1))); do
         echo -e "   ${E_WARN}  ${PROXY_LABELS[$i]}: домен=${PROXY_DOMAINS[$i]}, порт=${PROXY_PORTS[$i]}"
+    done
+    echo -e "   ${E_WARN}  Откройте порты в файрволе:"
+    for i in $(seq 0 $((PROXY_COUNT - 1))); do
+        echo -e "      ${CYAN}ufw allow ${PROXY_PORTS[$i]}/tcp${NC}"
     done
     echo ""
 
