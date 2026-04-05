@@ -220,6 +220,9 @@ EOF
 
 # Устанавливаем зависимости
 echo -e "${YELLOW}Установка зависимостей...${NC}"
+if ! command -v pip3 &>/dev/null; then
+    apt-get update -qq && apt-get install -y -qq python3-pip
+fi
 pip3 install --quiet fastapi uvicorn
 
 # Запускаем
