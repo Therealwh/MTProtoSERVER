@@ -180,40 +180,21 @@ async def nodes_page(request: Request):
 @app.get("/stats", response_class=HTMLResponse)
 async def stats_page(request: Request):
     c = ctx(request)
-    # Get proxies from proxies.json
-    pd = load_json(os.path.join(DATA_DIR, 'proxies.json'))
-    proxies = pd.get('proxies', [])
-    # Also get clients
-    cd = get_clients()
-    clients = cd.get('clients', [])
-    # Merge both
+    # Get proxies with live connection counts
+    proxies = get_all_mtproto()
     all_items = []
     for p in proxies:
         all_items.append({
             'label': p.get('label', ''),
             'port': p.get('port', 0),
             'domain': p.get('domain', ''),
-            'enabled': p.get('enabled', True),
+            'enabled': True,
             'type': 'MTProto',
-            'rx_bytes': p.get('traffic_in', 0),
-            'tx_bytes': p.get('traffic_out', 0),
-            'unique_ips': p.get('connections', 0),
-            'created_at': p.get('created_at', '')
+            'rx_bytes': 0,
+            'tx_bytes': 0,
+            'unique_ips': p.get('unique_ips', 0),
+            'created_at': ''
         })
-    for cl in clients:
-        exists = any(x['label'] == cl.get('label') for x in all_items)
-        if not exists:
-            all_items.append({
-                'label': cl.get('label', ''),
-                'port': cl.get('port', 0),
-                'domain': cl.get('domain', ''),
-                'enabled': cl.get('enabled', True),
-                'type': 'Клиент',
-                'rx_bytes': cl.get('rx_bytes', 0),
-                'tx_bytes': cl.get('tx_bytes', 0),
-                'unique_ips': cl.get('unique_ips', 0),
-                'created_at': cl.get('created_at', '')
-            })
     c.update({'clients': all_items, 'system': sys_info()})
     return templates.TemplateResponse("stats.html", c)
 
@@ -699,17 +680,7 @@ async def update_mtproto(label: str, request: Request):
 
 @app.get("/api/mtproto/list")
 async def list_mtproto():
-    s = get_settings()
-    ip = s.get('proxy_ip', '0.0.0.0')
-    pd = load_json(os.path.join(DATA_DIR, 'proxies.json'))
-    proxies = []
-    for p in pd.get('proxies', []):
-        proxies.append({
-            'label': p.get('label', ''), 'port': p.get('port', 0), 'domain': p.get('domain', ''),
-            'secret': p.get('secret', ''), 'enabled': p.get('enabled', True),
-            'link': proxy_link(ip, p.get('port', 0), p.get('secret', ''))
-        })
-    return JSONResponse({'proxies': proxies})
+    return JSONResponse({'proxies': get_all_mtproto()})
 
 @app.post("/api/mtproto/{label}/update")
 async def update_mtproto(label: str, request: Request):
@@ -765,12 +736,29 @@ def get_all_mtproto():
     pd = load_json(os.path.join(DATA_DIR, 'proxies.json'))
     for p in pd.get('proxies', []):
         if p.get('enabled', True):
+            port = p.get('port', 0)
+            # Count active connections via ss
+            unique_ips = 0
+            try:
+                r = subprocess.run(['ss', '-tn', 'state', 'established', f'sport', f':{port}'],
+                                  capture_output=True, text=True, timeout=5)
+                lines = r.stdout.strip().split('\n')[1:]  # skip header
+                ips = set()
+                for line in lines:
+                    parts = line.split()
+                    if len(parts) >= 5:
+                        remote = parts[4].rsplit(':', 1)[0]
+                        if remote and remote != '127.0.0.1':
+                            ips.add(remote)
+                unique_ips = len(ips)
+            except: pass
             proxies.append({
                 'label': p.get('label', ''),
-                'port': p.get('port', 0),
+                'port': port,
                 'domain': p.get('domain', ''),
                 'secret': p.get('secret', ''),
-                'link': proxy_link(ip, p.get('port', 0), p.get('secret', ''))
+                'unique_ips': unique_ips,
+                'link': proxy_link(ip, port, p.get('secret', ''))
             })
     return proxies
 
