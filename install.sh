@@ -670,6 +670,7 @@ step_download_files() {
     download_file "webui/requirements.txt"
     download_file "webui/app.py"
     download_file "webui/templates/base.html"
+    download_file "webui/templates/login.html"
     download_file "webui/templates/dashboard.html"
     download_file "webui/templates/clients.html"
     download_file "webui/templates/nodes.html"
@@ -680,6 +681,7 @@ step_download_files() {
     download_file "webui/templates/backup.html"
     download_file "webui/templates/socks5.html"
     download_file "webui/templates/http_proxy.html"
+    download_file "webui/templates/mtproto.html"
     download_file "webui/static/css/style.css"
     download_file "webui/static/js/app.js"
 
