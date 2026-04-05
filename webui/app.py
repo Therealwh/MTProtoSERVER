@@ -32,6 +32,16 @@ def save_json(fp, data):
     os.makedirs(os.path.dirname(fp), exist_ok=True)
     with open(fp, 'w') as f: json.dump(data, f, indent=4)
 
+def init_files():
+    if not os.path.exists(CLIENTS_FILE):
+        save_json(CLIENTS_FILE, {"clients": [], "next_id": 1})
+    if not os.path.exists(NODES_FILE):
+        save_json(NODES_FILE, {"nodes": [], "next_id": 1})
+    if not os.path.exists(AUTH_FILE):
+        save_json(AUTH_FILE, {"token": "", "totp_secret": "", "totp_enabled": False})
+
+init_files()
+
 def get_settings():
     s = load_json(SETTINGS_FILE)
     for k, v in {'proxy_ip':'0.0.0.0','proxy_port':443,'fake_domain':'cloudflare.com','webui_port':8080,'proxy_count':1,'bot_enabled':False,'bot_token':'','admin_chat_id':'','socks5_enabled':False,'socks5_port':1080,'socks5_user':'','socks5_pass':'','http_proxy_enabled':False,'http_proxy_port':3128,'http_proxy_user':'','http_proxy_pass':'','ad_tag':'','geoblock_countries':'','webhook_url':'','auto_heal':True,'auto_update':True,'backup_enabled':True,'backup_interval':'daily','monitor_interval':300,'geoblock':[],'ip_whitelist':[],'ip_blacklist':[],'rate_limit':100}.items():
@@ -77,7 +87,9 @@ def fmt(b):
         b/=1024
     return f"{b:.1f} PB"
 
-def ctx(r): return {'settings':get_settings(),'has_logo':os.path.exists(LOGO_FILE),'lang':'ru','now':datetime.now().strftime('%Y-%m-%d'),'request':r}
+def ctx(r):
+    s = get_settings()
+    return {'settings':s,'has_logo':os.path.exists(LOGO_FILE),'lang':'ru','now':datetime.now().strftime('%Y-%m-%d'),'request':r,'server_ip':s.get('proxy_ip','0.0.0.0')}
 
 # AUTH
 PROTECTED = ['/clients','/nodes','/stats','/settings','/security','/logs','/backup','/socks5','/http-proxy','/mtproto']
@@ -347,22 +359,28 @@ async def delete_backup(request: Request):
 @app.get("/api/system/health")
 async def health_check():
     checks=[]
+    # Docker check via socket
     try:
-        r=subprocess.run(['docker','info'], capture_output=True, timeout=5)
-        checks.append(f"{'✅' if r.returncode==0 else '❌'} Docker: {'работает' if r.returncode==0 else 'не работает'}")
+        r=subprocess.run(['docker','ps','--format','{{.Names}} {{.Status}}'], capture_output=True, text=True, timeout=10)
+        if r.returncode==0:
+            checks.append("✅ Docker: работает")
+            if r.stdout.strip():
+                checks.append("✅ Контейнеры:")
+                for l in r.stdout.strip().split('\n'): checks.append(f"   {l}")
+            else: checks.append("⚠️ Контейнеры не запущены")
+        else:
+            checks.append("❌ Docker: не доступен")
     except: checks.append("❌ Docker: не доступен")
-    try:
-        r=subprocess.run(['docker','ps','--format','{{.Names}} {{.Status}}'], capture_output=True, text=True, timeout=5)
-        if r.stdout.strip():
-            checks.append("✅ Контейнеры:")
-            for l in r.stdout.strip().split('\n'): checks.append(f"   {l}")
-        else: checks.append("⚠️ Контейнеры не запущены")
-    except: checks.append("❌ Не удалось проверить контейнеры")
     d=psutil.disk_usage('/'); m=psutil.virtual_memory()
     checks.append(f"{'✅' if d.percent<90 else '⚠️'} Диск: {d.percent}% использовано")
     checks.append(f"{'✅' if m.percent<90 else '⚠️'} RAM: {m.percent}% использовано")
     for f in ['config/settings.json','data/clients.json','data/nodes.json']:
-        checks.append(f"{'✅' if os.path.exists(os.path.join('/app',f)) else '❌'} {f}")
+        fp = os.path.join('/app',f)
+        if not os.path.exists(fp):
+            # Create if missing
+            if 'clients.json' in f: save_json(fp, {"clients":[],"next_id":1})
+            elif 'nodes.json' in f: save_json(fp, {"nodes":[],"next_id":1})
+        checks.append(f"{'✅' if os.path.exists(fp) else '❌'} {f}")
     return JSONResponse({'status':'ok','output':'\n'.join(checks)})
 
 @app.get("/api/system/speedtest")
@@ -381,6 +399,11 @@ async def speed_test():
 async def update_system():
     msg=compose(['pull']); msg+=compose(['up','-d','--build','--force-recreate'])
     return JSONResponse({'status':'ok','message':msg})
+
+@app.post("/api/system/uninstall")
+async def uninstall_system():
+    compose(['down','--rmi','all','--volumes','--remove-orphans'])
+    return JSONResponse({'status':'ok'})
 
 @app.post("/api/system/set-adtag")
 async def set_adtag(request: Request):
@@ -431,6 +454,13 @@ async def api_metrics():
     m=f"# HELP mtproto_clients_total Total clients\n# TYPE mtproto_clients_total gauge\nmtproto_clients_total {len(cl)}\n# HELP mtproto_clients_active Active clients\n# TYPE mtproto_clients_active gauge\nmtproto_clients_active {len([c for c in cl if c.get('enabled')])}\n"
     for c in cl: m+=f"# HELP mtproto_rx RX for {c['label']}\n# TYPE mtproto_rx counter\nmtproto_rx{{client=\"{c['label']}\"}} {c.get('rx_bytes',0)}\n"
     return HTMLResponse(content=m)
+
+# MTProto secret generation
+@app.get("/api/mtproto/generate-secret")
+async def generate_secret():
+    dom = get_settings().get('fake_domain','cloudflare.com')
+    secret = f"ee{sec.token_hex(14)}{dom.encode().hex()}"
+    return JSONResponse({'status':'ok','secret':secret,'domain':dom})
 
 # SECURITY API
 @app.get("/api/security/ip-lists")

@@ -57,7 +57,7 @@
 
 <div class="section">
     <h3>📋 Все клиенты ({{ clients | length }})</h3>
-    <p style="color:var(--text-secondary);margin-bottom:12px;">Таблица всех клиентов с информацией о трафике, устройствах, сроке действия и графиком подключений за 24 часа. Кнопки действий: QR-код, копировать ссылку, ротация секрета, сброс трафика, вкл/выкл, удаление.</p>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Таблица всех клиентов с информацией о трафике, устройствах, сроке действия и графиком подключений за 24 часа.</p>
     <div class="table-container">
         <table class="table">
             <thead>
@@ -111,18 +111,16 @@
                         <span style="color:var(--text-secondary)">∞</span>
                         {% endif %}
                     </td>
-                    <td>
-                        <canvas id="spark-{{ c.id }}" width="60" height="20"></canvas>
-                    </td>
+                    <td><canvas id="spark-{{ c.id }}" width="60" height="20"></canvas></td>
                     <td class="actions-cell">
-                        <button class="btn btn-sm" onclick="showQR('{{ c.label }}', '{{ settings.proxy_ip }}', {{ c.port }}, '{{ c.secret }}')" title="Показать QR-код">📱</button>
-                        <button class="btn btn-sm" onclick="copyLink('{{ settings.proxy_ip }}', {{ c.port }}, '{{ c.secret }}')" title="Копировать ссылку">📋</button>
-                        <button class="btn btn-sm" onclick="rotateClient({{ c.id }})" title="Ротировать секрет (старая ссылка перестанет работать)">🔄</button>
-                        <button class="btn btn-sm" onclick="resetTraffic({{ c.id }})" title="Сбросить счётчики трафика">📊</button>
-                        <button class="btn btn-sm" onclick="toggleClient({{ c.id }})" title="Включить/Отключить">
+                        <button class="btn btn-sm" onclick="copyLink('{{ server_ip }}', {{ c.port }}, '{{ c.secret }}')" title="Копировать ссылку">📋</button>
+                        <button class="btn btn-sm" onclick="showQR('{{ c.label }}', '{{ server_ip }}', {{ c.port }}, '{{ c.secret }}')" title="QR-код">📱</button>
+                        <button class="btn btn-sm" onclick="rotateClient({{ c.id }})" title="Ротировать секрет">🔄</button>
+                        <button class="btn btn-sm" onclick="resetTraffic({{ c.id }})" title="Сбросить трафик">📊</button>
+                        <button class="btn btn-sm" onclick="toggleClient({{ c.id }})" title="Вкл/Выкл">
                             {% if c.enabled %}⏸️{% else %}▶️{% endif %}
                         </button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteClient({{ c.id }})" title="Удалить клиента">🗑️</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteClient({{ c.id }})" title="Удалить">🗑️</button>
                     </td>
                 </tr>
                 {% endfor %}
@@ -144,7 +142,7 @@
 
 {% block scripts %}
 <script>
-const proxyIp = '{{ settings.proxy_ip }}';
+const proxyIp = '{{ server_ip }}';
 
 document.getElementById('add-client-form').addEventListener('submit', async (e) => {
     e.preventDefault();

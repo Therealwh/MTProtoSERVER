@@ -99,6 +99,7 @@
         <div class="action-card" onclick="createSocks5()" style="cursor:pointer;"><span class="action-icon">🧦</span><span>Создать SOCKS5</span></div>
         <div class="action-card" onclick="createHttp()" style="cursor:pointer;"><span class="action-icon">🌐</span><span>Создать HTTP</span></div>
         <div class="action-card" onclick="updateSystem()" style="cursor:pointer;"><span class="action-icon">🔄</span><span>Обновить систему</span></div>
+        <div class="action-card" onclick="uninstallAll()" style="cursor:pointer;border-color:var(--danger);"><span class="action-icon">🗑️</span><span style="color:var(--danger);">Удалить всё</span></div>
     </div>
 </div>
 {% endblock %}
@@ -116,7 +117,6 @@ async function restartAll() {
     const res = await fetch('/api/system/restart', { method: 'POST' });
     if ((await res.json()).status === 'ok') { showToast('✅ Все контейнеры перезапускаются'); setTimeout(() => location.reload(), 3000); }
 }
-
 async function updateSystem() {
     if (!confirm('Обновить систему? Контейнеры будут перезапущены.')) return;
     showToast('Обновление...');
@@ -125,37 +125,36 @@ async function updateSystem() {
     if (data.status === 'ok') { showToast('✅ Система обновлена!'); setTimeout(() => location.reload(), 3000); }
     else { showToast('❌ Ошибка: ' + (data.message || 'Неизвестная')); }
 }
-
+async function uninstallAll() {
+    if (!confirm('⚠️ УДАЛИТЬ ВСЁ? Все контейнеры, данные, конфиги будут безвозвратно удалены!')) return;
+    if (!confirm('Вы ТОЧНО уверены? Это действие необратимо!')) return;
+    showToast('Удаление...');
+    const res = await fetch('/api/system/uninstall', { method: 'POST' });
+    if ((await res.json()).status === 'ok') { showToast('✅ Система удалена. Перенаправление...'); setTimeout(() => window.location.href='/login', 3000); }
+}
 async function createSocks5() {
     const port = prompt('Порт SOCKS5:', '1080');
     if (!port) return;
     const user = prompt('Логин:', 'proxyuser') || 'proxyuser';
     const password = prompt('Пароль:', '') || Math.random().toString(36).slice(-8);
-    const fd = new FormData();
-    fd.append('port', port); fd.append('user', user); fd.append('password', password);
+    const fd = new FormData(); fd.append('port', port); fd.append('user', user); fd.append('password', password);
     showToast('Создание SOCKS5...');
     const res = await fetch('/api/proxies/socks5/create', { method: 'POST', body: fd });
     const data = await res.json();
-    if (data.status === 'ok') {
-        showToast(`✅ SOCKS5 создан: ${user}:${password}@${data.port}`);
-        setTimeout(() => location.reload(), 2000);
-    } else { showToast('❌ Ошибка'); }
+    if (data.status === 'ok') { showToast('✅ SOCKS5 создан: '+user+':'+password+'@:'+data.port); setTimeout(() => location.reload(), 2000); }
+    else { showToast('❌ Ошибка'); }
 }
-
 async function createHttp() {
     const port = prompt('Порт HTTP/HTTPS:', '3128');
     if (!port) return;
     const user = prompt('Логин:', 'proxyuser') || 'proxyuser';
     const password = prompt('Пароль:', '') || Math.random().toString(36).slice(-8);
-    const fd = new FormData();
-    fd.append('port', port); fd.append('user', user); fd.append('password', password);
+    const fd = new FormData(); fd.append('port', port); fd.append('user', user); fd.append('password', password);
     showToast('Создание HTTP прокси...');
     const res = await fetch('/api/proxies/http/create', { method: 'POST', body: fd });
     const data = await res.json();
-    if (data.status === 'ok') {
-        showToast(`✅ HTTP прокси создан: ${user}:${password}@${data.port}`);
-        setTimeout(() => location.reload(), 2000);
-    } else { showToast('❌ Ошибка'); }
+    if (data.status === 'ok') { showToast('✅ HTTP прокси создан: '+user+':'+password+'@:'+data.port); setTimeout(() => location.reload(), 2000); }
+    else { showToast('❌ Ошибка'); }
 }
 </script>
 {% endblock %}

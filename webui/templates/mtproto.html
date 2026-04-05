@@ -12,7 +12,7 @@
     <div class="settings-grid">
         <div class="setting-item">
             <label>IP сервера</label>
-            <input type="text" value="{{ settings.proxy_ip }}" class="input" readonly>
+            <input type="text" value="{{ server_ip }}" class="input" readonly>
         </div>
         <div class="setting-item">
             <label>Основной порт</label>
@@ -27,6 +27,15 @@
             <input type="text" value="{{ settings.proxy_count }}" class="input" readonly>
         </div>
     </div>
+</div>
+
+<div class="section">
+    <h3>🔑 Генерация секрета</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Сгенерируйте новый секрет для MTProto прокси. Секрет привязан к текущему домену маскировки. После смены секрета старые ссылки перестанут работать — нужно будет выдать новые.</p>
+    <div class="form-inline">
+        <button class="btn btn-primary" onclick="generateSecret()">🔑 Сгенерировать секрет</button>
+    </div>
+    <div id="secret-result" class="result-box" style="display:none;"></div>
 </div>
 
 <div class="section">
@@ -60,10 +69,10 @@
 <div class="section">
     <h3>📋 Ссылки для подключения</h3>
     <p style="color:var(--text-secondary);margin-bottom:12px;">Скопируйте эти ссылки и отправьте пользователям. Они откроют их в Telegram и подключатся к прокси.</p>
-    {% if settings.proxy_ip and settings.proxy_port %}
+    {% if server_ip and settings.proxy_port %}
     <div class="proxy-link-box" style="margin-bottom:8px;">
-        <code>tg://proxy?server={{ settings.proxy_ip }}&port={{ settings.proxy_port }}&secret=СЕКРЕТ_КЛИЕНТА</code>
-        <button class="btn btn-sm" onclick="navigator.clipboard.writeText('tg://proxy?server={{ settings.proxy_ip }}&port={{ settings.proxy_port }}&secret=СЕКРЕТ_КЛИЕНТА')">📋</button>
+        <code>tg://proxy?server={{ server_ip }}&port={{ settings.proxy_port }}&secret=СЕКРЕТ_КЛИЕНТА</code>
+        <button class="btn btn-sm" onclick="navigator.clipboard.writeText('tg://proxy?server={{ server_ip }}&port={{ settings.proxy_port }}&secret=СЕКРЕТ_КЛИЕНТА')">📋</button>
     </div>
     {% endif %}
     <p style="color:var(--text-secondary);font-size:13px;">⚠️ Вместо "СЕКРЕТ_КЛИЕНТА" подставьте секрет конкретного клиента со страницы "Клиенты".</p>
@@ -94,6 +103,18 @@
 
 {% block scripts %}
 <script>
+async function generateSecret() {
+    const res = await fetch('/api/mtproto/generate-secret');
+    const data = await res.json();
+    const r = document.getElementById('secret-result');
+    r.style.display = 'block';
+    r.className = 'result-box success';
+    r.innerHTML = `<p>✅ Новый секрет:</p>
+        <code style="word-break:break-all;">${data.secret}</code>
+        <p style="margin-top:8px;">Домен: <strong>${data.domain}</strong></p>
+        <button class="btn btn-sm" onclick="navigator.clipboard.writeText('${data.secret}')">📋 Копировать</button>`;
+}
+
 document.getElementById('domain-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;

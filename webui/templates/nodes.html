@@ -7,8 +7,66 @@
 </div>
 
 <div class="section">
+    <h3>📖 Что такое ноды и зачем они нужны?</h3>
+    <div class="tips-list">
+        <div class="tip-item">
+            <span class="tip-icon">🖥️</span>
+            <span><strong>Нода</strong> — это отдельный сервер (VPS/VDS) с установленным MTG Agent. Агент позволяет панели управления видеть статус прокси, трафик и подключения на удалённом сервере.</span>
+        </div>
+        <div class="tip-item">
+            <span class="tip-icon">🌍</span>
+            <span><strong>Зачем несколько нод?</strong> Если одна нода упадёт или будет заблокирована — остальные продолжат работать. Также можно разместить ноды в разных странах для лучшей скорости.</span>
+        </div>
+        <div class="tip-item">
+            <span class="tip-icon">📊</span>
+            <span><strong>Что видит панель?</strong> Статус контейнеров, трафик RX/TX, количество уникальных IP, историю подключений за 24 часа.</span>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h3>📦 Пошаговая инструкция: как добавить ноду</h3>
+    <div class="tips-list">
+        <div class="tip-item">
+            <span class="tip-icon">1️⃣</span>
+            <span><strong>Арендуйте VPS</strong> — любой сервер с Ubuntu/Debian (от 1 ядра, 512MB RAM). Подойдёт любой хостинг.</span>
+        </div>
+        <div class="tip-item">
+            <span class="tip-icon">2️⃣</span>
+            <span><strong>Установите Docker</strong> на удалённый сервер: <code>curl -fsSL https://get.docker.com | sh</code></span>
+        </div>
+        <div class="tip-item">
+            <span class="tip-icon">3️⃣</span>
+            <span><strong>Придумайте секретный токен</strong> — это пароль для связи между панелью и нодой. Например: <code>mySecretToken123</code>. Запишите его.</span>
+        </div>
+        <div class="tip-item">
+            <span class="tip-icon">4️⃣</span>
+            <span><strong>Установите MTG Agent</strong> на удалённый сервер. Выполните эту команду на удалённом сервере (замените YOUR_TOKEN на ваш токен):</span>
+        </div>
+    </div>
+    <div class="proxy-link-box" style="margin:12px 0;">
+        <code id="agent-cmd">curl -fsSL https://raw.githubusercontent.com/Therealwh/MTProtoSERVER/main/agent/install.sh | bash -s -- --port 9876 --token YOUR_TOKEN</code>
+        <button class="btn btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('agent-cmd').textContent)">📋</button>
+    </div>
+    <div class="tips-list">
+        <div class="tip-item">
+            <span class="tip-icon">5️⃣</span>
+            <span><strong>Откройте порт 9876</strong> на удалённом сервере: <code>ufw allow 9876/tcp</code></span>
+        </div>
+        <div class="tip-item">
+            <span class="tip-icon">6️⃣</span>
+            <span><strong>Добавьте ноду в панель</strong> — заполните форму ниже: название, IP удалённого сервера, порт 9876, флаг страны и тот же токен, что указали при установке агента.</span>
+        </div>
+        <div class="tip-item">
+            <span class="tip-icon">7️⃣</span>
+            <span><strong>Проверьте связь</strong> — нажмите кнопку 📡 (пинг). Если статус «Онлайн» — нода подключена и работает!</span>
+        </div>
+    </div>
+</div>
+
+<div class="section">
     <h3>➕ Добавить ноду</h3>
-    <p style="color:var(--text-secondary);margin-bottom:12px;">Добавьте удалённый сервер. На нём нужно установить MTG Agent (инструкция ниже). После добавления вы сможете проверять связь, синхронизировать клиентов и управлять прокси.</p>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Заполните данные удалённого сервера. Токен должен совпадать с тем, что указан при установке MTG Agent.</p>
     <form id="add-node-form" class="form-grid">
         <div class="form-group">
             <label>Название ноды</label>
@@ -36,14 +94,6 @@
                 <option value="token">Токен</option>
                 <option value="ssh">SSH</option>
             </select>
-        </div>
-        <div class="form-group">
-            <label>SSH пользователь (если SSH)</label>
-            <input type="text" name="ssh_user" placeholder="root" class="input">
-        </div>
-        <div class="form-group">
-            <label>SSH пароль/ключ</label>
-            <input type="password" name="ssh_pass" placeholder="пароль или ключ" class="input">
         </div>
         <div class="form-group" style="display:flex;align-items:flex-end;">
             <button type="submit" class="btn btn-primary">➕ Добавить ноду</button>
@@ -98,16 +148,6 @@
             </tbody>
         </table>
     </div>
-</div>
-
-<div class="section">
-    <h3>📦 Установка агента на удалённый сервер</h3>
-    <p style="color:var(--text-secondary);margin-bottom:12px;">Для добавления ноды нужно установить MTG Agent на удалённый сервер. Выполните эту команду на удалённом сервере, заменив YOUR_TOKEN на ваш секретный токен:</p>
-    <div class="proxy-link-box">
-        <code id="agent-install-cmd">curl -fsSL https://raw.githubusercontent.com/Therealwh/MTProtoSERVER/main/agent/install.sh | bash -s -- --port 9876 --token YOUR_TOKEN</code>
-        <button class="btn btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('agent-install-cmd').textContent)">📋 Копировать</button>
-    </div>
-    <p style="color:var(--text-secondary);margin-top:12px;">После установки добавьте ноду в форму выше, указав IP, порт (9876) и тот же токен.</p>
 </div>
 {% endblock %}
 
