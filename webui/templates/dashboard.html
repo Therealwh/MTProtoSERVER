@@ -17,8 +17,38 @@
     <div class="stat-card">
         <div class="stat-icon">👥</div>
         <div class="stat-info">
-            <h3>{{ clients_count }}</h3>
-            <p>Клиентов</p>
+            <h3>{{ total_connections | default(0) }}</h3>
+            <p>Подключений</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">🖥️</div>
+        <div class="stat-info">
+            <h3>{{ nodes_count }}</h3>
+            <p>Нод</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">⬇️</div>
+        <div class="stat-info">
+            <h3>{{ total_rx }}</h3>
+            <p>Всего получено (RX)</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">⬆️</div>
+        <div class="stat-info">
+            <h3>{{ total_tx }}</h3>
+            <p>Всего отправлено (TX)</p>
+        </div>
+    </div>
+</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">👥</div>
+        <div class="stat-info">
+            <h3>{{ total_connections | default(0) }}</h3>
+            <p>Подключений</p>
         </div>
     </div>
     <div class="stat-card">

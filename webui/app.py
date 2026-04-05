@@ -155,19 +155,19 @@ async def dashboard(request: Request):
     live = get_all_mtproto()
     total_rx = sum(p.get('rx_bytes', 0) for p in live)
     total_tx = sum(p.get('tx_bytes', 0) for p in live)
-    cd = get_clients()
-    cl = cd.get('clients',[])
+    total_connections = sum(p.get('unique_ips', 0) for p in live)
     c.update({
-        'clients':cl, 'nodes':ns,
-        'clients_count': len(cl),
-        'active_clients': len([x for x in cl if x.get('enabled',True)]),
+        'clients': live, 'nodes': ns,
+        'clients_count': proxy_count,
+        'active_clients': active_proxies,
         'proxy_count': proxy_count,
         'active_proxies': active_proxies,
-        'nodes_count':len(ns),
+        'total_connections': total_connections,
+        'nodes_count': len(ns),
         'total_rx': fmt(total_rx),
         'total_tx': fmt(total_tx),
-        'system':sys_info(),
-        'containers':docker_ps()
+        'system': sys_info(),
+        'containers': docker_ps()
     })
     return templates.TemplateResponse("dashboard.html", c)
 
