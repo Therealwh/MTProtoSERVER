@@ -87,4 +87,8 @@ new Chart(document.getElementById('trafficChart'), {
     options: { responsive: true, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true } } }
 });
 </script>
+<script>
+// Auto-refresh every 10 seconds
+setInterval(() => location.reload(), 10000);
+</script>
 {% endblock %}

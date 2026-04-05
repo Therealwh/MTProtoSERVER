@@ -194,4 +194,8 @@ async function createHttp() {
     else { showToast('❌ Ошибка'); }
 }
 </script>
+<script>
+// Auto-refresh every 10 seconds
+setInterval(() => location.reload(), 10000);
+</script>
 {% endblock %}

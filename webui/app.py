@@ -147,12 +147,14 @@ async def dashboard(request: Request):
     c = ctx(request)
     nd = get_nodes()
     ns = nd.get('nodes',[])
-    # Use proxies.json for MTProto proxy count
     pd = load_json(os.path.join(DATA_DIR, 'proxies.json'))
     proxies = pd.get('proxies', [])
     proxy_count = len(proxies)
     active_proxies = len([p for p in proxies if p.get('enabled', True)])
-    # Also count clients
+    # Get live traffic data
+    live = get_all_mtproto()
+    total_rx = sum(p.get('rx_bytes', 0) for p in live)
+    total_tx = sum(p.get('tx_bytes', 0) for p in live)
     cd = get_clients()
     cl = cd.get('clients',[])
     c.update({
@@ -162,8 +164,8 @@ async def dashboard(request: Request):
         'proxy_count': proxy_count,
         'active_proxies': active_proxies,
         'nodes_count':len(ns),
-        'total_rx': fmt(sum(x.get('rx_bytes',0) for x in cl)),
-        'total_tx': fmt(sum(x.get('tx_bytes',0) for x in cl)),
+        'total_rx': fmt(total_rx),
+        'total_tx': fmt(total_tx),
         'system':sys_info(),
         'containers':docker_ps()
     })
@@ -222,7 +224,6 @@ async def nodes_page(request: Request):
 @app.get("/stats", response_class=HTMLResponse)
 async def stats_page(request: Request):
     c = ctx(request)
-    # Get proxies with live connection counts
     proxies = get_all_mtproto()
     all_items = []
     for p in proxies:
@@ -232,9 +233,10 @@ async def stats_page(request: Request):
             'domain': p.get('domain', ''),
             'enabled': True,
             'type': 'MTProto',
-            'rx_bytes': 0,
-            'tx_bytes': 0,
+            'rx_bytes': p.get('rx_bytes', 0),
+            'tx_bytes': p.get('tx_bytes', 0),
             'unique_ips': p.get('unique_ips', 0),
+            'connected_ips': p.get('connected_ips', []),
             'created_at': ''
         })
     c.update({'clients': all_items, 'system': sys_info()})
