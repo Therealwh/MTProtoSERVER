@@ -279,14 +279,12 @@ async def create_socks5(request: Request):
     s=get_settings(); s['socks5_enabled']=True; s['socks5_port']=port; s['socks5_user']=user; s['socks5_pass']=pw; save_settings(s)
     os.makedirs(f"{HOST_DIR}/config", exist_ok=True)
     with open(f"{HOST_DIR}/config/socks5.conf",'w') as f: f.write(f"logoutput: stderr\ninternal: 0.0.0.0 port = 1080\nexternal: eth0\nclientmethod: none\nsocksmethod: username\nuser.privileged: root\nuser.notprivileged: sockd\nuser.libwrap: nobody\nclient pass {{ from: 0.0.0.0/0 to: 0.0.0.0/0 }}\nsocks pass {{ from: 0.0.0.0/0 to: 0.0.0.0/0 user: {user} password: {pw} }}\n")
-    dc=f"{HOST_DIR}/docker-compose.yml"
-    if os.path.exists(dc):
-        with open(dc,'r') as f: content=f.read()
-        if 'socks5:' not in content:
-            with open(dc,'a') as f: f.write(f'\n  socks5:\n    image: vimagick/dante\n    container_name: mtproto-socks5\n    restart: unless-stopped\n    ports:\n      - "{port}:1080"\n    volumes:\n      - ./config/socks5.conf:/etc/sockd.conf:ro\n    cap_add:\n      - NET_ADMIN\n    networks:\n      - mtproto-net\n')
     try: subprocess.run(['ufw','allow',str(port)+'/tcp'], capture_output=True, timeout=10)
     except: pass
-    compose(['up','-d','socks5'])
+    try:
+        subprocess.run(['docker','rm','-f','mtproto-socks5'], capture_output=True, timeout=10)
+        subprocess.run(['docker','run','-d','--name','mtproto-socks5','--restart','unless-stopped','-p',f'{port}:1080','-v',f'{HOST_DIR}/config/socks5.conf:/etc/sockd.conf:ro','--cap-add','NET_ADMIN','--network','mtprotoserver_mtproto-net','vimagick/dante'], capture_output=True, timeout=30)
+    except: pass
     return JSONResponse({'status':'ok','port':port,'user':user,'password':pw})
 
 @app.post("/api/proxies/http/create")
@@ -295,23 +293,27 @@ async def create_http(request: Request):
     s=get_settings(); s['http_proxy_enabled']=True; s['http_proxy_port']=port; s['http_proxy_user']=user; s['http_proxy_pass']=pw; save_settings(s)
     os.makedirs(f"{HOST_DIR}/config", exist_ok=True)
     with open(f"{HOST_DIR}/config/squid.conf",'w') as f: f.write("http_port 3128\ncache_dir ufs /var/spool/squid 100 16 256\ncoredump_dir /var/spool/squid\nhttp_access allow all\n")
-    dc=f"{HOST_DIR}/docker-compose.yml"
-    if os.path.exists(dc):
-        with open(dc,'r') as f: content=f.read()
-        if 'http-proxy:' not in content:
-            with open(dc,'a') as f: f.write(f'\n  http-proxy:\n    image: sameersbn/squid:latest\n    container_name: mtproto-http-proxy\n    restart: unless-stopped\n    ports:\n      - "{port}:3128"\n    volumes:\n      - ./config/squid.conf:/etc/squid/squid.conf:ro\n    networks:\n      - mtproto-net\n')
     try: subprocess.run(['ufw','allow',str(port)+'/tcp'], capture_output=True, timeout=10)
     except: pass
-    compose(['up','-d','http-proxy'])
+    try:
+        subprocess.run(['docker','rm','-f','mtproto-http-proxy'], capture_output=True, timeout=10)
+        subprocess.run(['docker','run','-d','--name','mtproto-http-proxy','--restart','unless-stopped','-p',f'{port}:3128','-v',f'{HOST_DIR}/config/squid.conf:/etc/squid/squid.conf:ro','--network','mtprotoserver_mtproto-net','sameersbn/squid:latest'], capture_output=True, timeout=30)
+    except: pass
     return JSONResponse({'status':'ok','port':port,'user':user,'password':pw})
 
 @app.post("/api/proxies/socks5/delete")
 async def delete_socks5():
-    s=get_settings(); s['socks5_enabled']=False; save_settings(s); compose(['down','socks5']); return JSONResponse({'status':'ok'})
+    s=get_settings(); s['socks5_enabled']=False; save_settings(s)
+    try: subprocess.run(['docker','rm','-f','mtproto-socks5'], capture_output=True, timeout=10)
+    except: pass
+    return JSONResponse({'status':'ok'})
 
 @app.post("/api/proxies/http/delete")
 async def delete_http():
-    s=get_settings(); s['http_proxy_enabled']=False; save_settings(s); compose(['down','http-proxy']); return JSONResponse({'status':'ok'})
+    s=get_settings(); s['http_proxy_enabled']=False; save_settings(s)
+    try: subprocess.run(['docker','rm','-f','mtproto-http-proxy'], capture_output=True, timeout=10)
+    except: pass
+    return JSONResponse({'status':'ok'})
 
 # SYSTEM API
 @app.post("/api/system/restart")
