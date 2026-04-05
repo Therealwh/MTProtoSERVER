@@ -223,7 +223,7 @@ echo -e "${YELLOW}Установка зависимостей...${NC}"
 if ! command -v pip3 &>/dev/null; then
     apt-get update -qq && apt-get install -y -qq python3-pip
 fi
-pip3 install --quiet fastapi uvicorn
+pip3 install --break-system-packages --quiet fastapi uvicorn
 
 # Запускаем
 systemctl daemon-reload
