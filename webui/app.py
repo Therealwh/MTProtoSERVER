@@ -499,7 +499,22 @@ async def create_mtproto(request: Request):
     # Open port
     try: subprocess.run(['ufw', 'allow', str(port)+'/tcp'], capture_output=True, timeout=10)
     except: pass
-    # Create container
+    # Save to proxies.json FIRST (single source of truth)
+    pd = load_json(os.path.join(DATA_DIR, 'proxies.json'))
+    pl = pd.get('proxies', [])
+    p_next_id = pd.get('next_id', 1)
+    pl.append({
+        'id': p_next_id, 'label': label, 'port': port, 'domain': domain,
+        'secret': secret, 'enabled': True, 'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'connections': 0, 'traffic_in': 0, 'traffic_out': 0
+    })
+    pd['proxies'] = pl
+    pd['next_id'] = p_next_id + 1
+    save_json(os.path.join(DATA_DIR, 'proxies.json'), pd)
+    # Update proxy count
+    s['proxy_count'] = s.get('proxy_count', 1) + 1
+    save_settings(s)
+    # Try to create container (may fail inside container, but proxy is already saved)
     container_name = f'mtproto-proxy-{label}'
     try:
         subprocess.run(['docker', 'rm', '-f', container_name], capture_output=True, timeout=10)
@@ -507,11 +522,7 @@ async def create_mtproto(request: Request):
                        '-p', f'{port}:{port}', '--network', 'mtprotoserver_mtproto-net',
                        'nineseconds/mtg:2', 'simple-run', '-n', '1.1.1.1', '-i', 'prefer-ipv4',
                        f'0.0.0.0:{port}', secret], capture_output=True, timeout=30)
-    except Exception as e:
-        return JSONResponse({'status': 'error', 'message': str(e)}, status_code=500)
-    # Update proxy count
-    s['proxy_count'] = s.get('proxy_count', 1) + 1
-    save_settings(s)
+    except: pass
     return JSONResponse({'status': 'ok', 'label': label, 'port': port, 'secret': secret,
                         'link': proxy_link(s.get('proxy_ip', '0.0.0.0'), port, secret)})
 
@@ -538,17 +549,7 @@ async def create_mtproto(request: Request):
     # Open port
     try: subprocess.run(['ufw', 'allow', str(port)+'/tcp'], capture_output=True, timeout=10)
     except: pass
-    # Create container
-    container_name = f'mtproto-proxy-{label}'
-    try:
-        subprocess.run(['docker', 'rm', '-f', container_name], capture_output=True, timeout=10)
-        subprocess.run(['docker', 'run', '-d', '--name', container_name, '--restart', 'unless-stopped',
-                       '-p', f'{port}:{port}', '--network', 'mtprotoserver_mtproto-net',
-                       'nineseconds/mtg:2', 'simple-run', '-n', '1.1.1.1', '-i', 'prefer-ipv4',
-                       f'0.0.0.0:{port}', secret], capture_output=True, timeout=30)
-    except Exception as e:
-        return JSONResponse({'status': 'error', 'message': str(e)}, status_code=500)
-    # Save to proxies.json (single source of truth)
+    # Save to proxies.json FIRST (single source of truth)
     pd = load_json(os.path.join(DATA_DIR, 'proxies.json'))
     pl = pd.get('proxies', [])
     p_next_id = pd.get('next_id', 1)
@@ -563,6 +564,15 @@ async def create_mtproto(request: Request):
     # Update proxy count
     s['proxy_count'] = s.get('proxy_count', 1) + 1
     save_settings(s)
+    # Try to create container (may fail inside container, but proxy is already saved)
+    container_name = f'mtproto-proxy-{label}'
+    try:
+        subprocess.run(['docker', 'rm', '-f', container_name], capture_output=True, timeout=10)
+        subprocess.run(['docker', 'run', '-d', '--name', container_name, '--restart', 'unless-stopped',
+                       '-p', f'{port}:{port}', '--network', 'mtprotoserver_mtproto-net',
+                       'nineseconds/mtg:2', 'simple-run', '-n', '1.1.1.1', '-i', 'prefer-ipv4',
+                       f'0.0.0.0:{port}', secret], capture_output=True, timeout=30)
+    except: pass
     return JSONResponse({'status': 'ok', 'label': label, 'port': port, 'secret': secret,
                         'link': proxy_link(s.get('proxy_ip', '0.0.0.0'), port, secret)})
 
