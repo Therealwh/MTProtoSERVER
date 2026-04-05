@@ -501,8 +501,6 @@ step_create_config() {
     log_info "Создание docker-compose.yml..."
 
     cat > "$INSTALL_DIR/docker-compose.yml" << COMPOSE_HEADER_EOF
-version: '3.8'
-
 services:
 COMPOSE_HEADER_EOF
 
