@@ -2,37 +2,37 @@
 {% block title %}Статистика - MTProtoSERVER{% endblock %}
 {% block content %}
 <div class="page-header">
-    <h2>📈 Статистика</h2>
-    <p>Детальная статистика использования прокси</p>
+    <h2>📈 Статистика и логи</h2>
+    <p>Детальная статистика использования</p>
 </div>
 
 <div class="stats-grid">
     <div class="stat-card">
+        <div class="stat-icon">🌐</div>
+        <div class="stat-info">
+            <h3>{{ proxies | length }}</h3>
+            <p>Прокси серверов</p>
+        </div>
+    </div>
+    <div class="stat-card">
         <div class="stat-icon">👥</div>
         <div class="stat-info">
             <h3>{{ users | length }}</h3>
-            <p>Всего пользователей</p>
+            <p>Пользователей</p>
         </div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon">✅</div>
-        <div class="stat-info">
-            <h3>{{ users | selectattr('enabled') | list | length }}</h3>
-            <p>Активных</p>
-        </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon">📡</div>
+        <div class="stat-icon">🖥️</div>
         <div class="stat-info">
             <h3>{{ system.cpu_percent }}%</h3>
-            <p>Нагрузка CPU</p>
+            <p>CPU</p>
         </div>
     </div>
     <div class="stat-card">
         <div class="stat-icon">💾</div>
         <div class="stat-info">
             <h3>{{ system.memory_percent }}%</h3>
-            <p>Использование RAM</p>
+            <p>RAM</p>
         </div>
     </div>
 </div>
@@ -51,10 +51,8 @@
             <thead>
                 <tr>
                     <th>Пользователь</th>
+                    <th>Прокси</th>
                     <th>Статус</th>
-                    <th>Трафик IN</th>
-                    <th>Трафик OUT</th>
-                    <th>Всего</th>
                     <th>Создан</th>
                 </tr>
             </thead>
@@ -63,15 +61,17 @@
                 <tr>
                     <td><strong>{{ user.label }}</strong></td>
                     <td>
+                        {% for proxy in proxies %}
+                        {% if proxy.id == user.proxy_id %}{{ proxy.label }}{% endif %}
+                        {% endfor %}
+                    </td>
+                    <td>
                         {% if user.enabled %}
                         <span class="badge badge-success">Активен</span>
                         {% else %}
                         <span class="badge badge-danger">Отключён</span>
                         {% endif %}
                     </td>
-                    <td>{{ user.traffic_in | default(0) | filesizeformat }}</td>
-                    <td>{{ user.traffic_out | default(0) | filesizeformat }}</td>
-                    <td><strong>{{ (user.traffic_in | default(0) + user.traffic_out | default(0)) | filesizeformat }}</strong></td>
                     <td>{{ user.created_at }}</td>
                 </tr>
                 {% endfor %}
@@ -81,7 +81,7 @@
 </div>
 
 <div class="section">
-    <h3>🖥️ Системные ресурсы</h3>
+    <h3>🖥️ Ресурсы сервера</h3>
     <div class="system-info">
         <div class="info-row">
             <span>CPU:</span>

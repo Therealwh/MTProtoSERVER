@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.0.0-brightgreen)
+![Version](https://img.shields.io/badge/version-1.2.0-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Docker](https://img.shields.io/badge/docker-✅-blue)
 ![FakeTLS](https://img.shields.io/badge/FakeTLS-✅-orange)
@@ -112,6 +112,26 @@
 | **Rate Limiting** | Защита от злоупотребления |
 | **IP Whitelist/Blacklist** | Ручное управление доступом |
 | **Авто-бэкап** | Резервное копирование конфигов |
+
+### 🧦 SOCKS5 прокси
+| Функция | Описание |
+|---------|----------|
+| **Dante SOCKS5** | Универсальный прокси для любых приложений |
+| **Аутентификация** | Логин/пароль для каждого SOCKS5 пользователя |
+| **Любые приложения** | Браузер, Telegram, curl, системный прокси |
+
+### 💰 Монетизация
+| Функция | Описание |
+|---------|----------|
+| **Ad-Tag** | Встроенная реклама от Telegram (@MTProxyBot) |
+| **Управление из Web UI** | Установка и смена Ad-Tag из панели |
+
+### 🌍 GeoIP и безопасность
+| Функция | Описание |
+|---------|----------|
+| **GeoIP блокировка** | Блокировка стран при установке |
+| **Rate Limiting** | Защита от злоупотребления |
+| **Ротация домена** | Смена домена маскировки из Web UI |
 
 ### 💰 Монетизация
 | Функция | Описание |

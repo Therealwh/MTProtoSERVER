@@ -66,6 +66,11 @@
         </div>
         {% endif %}
     </div>
+    <form id="adtag-form" class="form-inline" style="margin-top:16px;">
+        <input type="text" name="ad_tag" placeholder="Введите новый Ad-Tag" class="input" style="flex:1;">
+        <button type="submit" class="btn btn-primary">💰 Установить Ad-Tag</button>
+    </form>
+    <div id="adtag-result" class="result-box" style="display:none;"></div>
 </div>
 
 <div class="section">
@@ -76,6 +81,24 @@
             <input type="text" value="{{ settings.geoblock_countries or 'Нет' }}" class="input" readonly>
         </div>
     </div>
+</div>
+
+<div class="section">
+    <h3>🔄 Ротация домена маскировки</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Смените домен маскировки если текущий заблокирован</p>
+    <form id="domain-form" class="form-inline">
+        <select name="domain" class="input">
+            <option value="cloudflare.com">cloudflare.com</option>
+            <option value="1c.ru">1c.ru</option>
+            <option value="sberbank.ru">sberbank.ru</option>
+            <option value="yandex.ru">yandex.ru</option>
+            <option value="mail.ru">mail.ru</option>
+            <option value="vk.com">vk.com</option>
+            <option value="gosuslugi.ru">gosuslugi.ru</option>
+        </select>
+        <button type="submit" class="btn btn-primary">🔄 Сменить домен</button>
+    </form>
+    <div id="domain-result" class="result-box" style="display:none;"></div>
 </div>
 
 <div class="section">
@@ -149,4 +172,44 @@
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('adtag-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    const result = document.getElementById('adtag-result');
+    try {
+        const res = await fetch('/api/system/set-adtag', { method: 'POST', body: formData });
+        const data = await res.json();
+        result.style.display = 'block';
+        result.className = 'result-box success';
+        result.textContent = '✅ Ad-Tag установлен: ' + data.ad_tag;
+    } catch (err) {
+        result.style.display = 'block';
+        result.className = 'result-box error';
+        result.textContent = '❌ Ошибка: ' + err.message;
+    }
+});
+
+document.getElementById('domain-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    const result = document.getElementById('domain-result');
+    try {
+        const res = await fetch('/api/system/rotate-domain', { method: 'POST', body: formData });
+        const data = await res.json();
+        result.style.display = 'block';
+        result.className = 'result-box success';
+        result.textContent = '✅ Домен изменён на: ' + data.domain + '. Перезапустите прокси для применения.';
+    } catch (err) {
+        result.style.display = 'block';
+        result.className = 'result-box error';
+        result.textContent = '❌ Ошибка: ' + err.message;
+    }
+});
+</script>
 {% endblock %}

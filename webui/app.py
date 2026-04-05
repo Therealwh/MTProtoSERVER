@@ -167,6 +167,12 @@ async def stats_page(request: Request):
         "system": system
     })
 
+@app.get("/logs", response_class=HTMLResponse)
+async def logs_page(request: Request):
+    return templates.TemplateResponse("logs.html", {
+        "request": request
+    })
+
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
     settings = get_settings()
@@ -349,9 +355,27 @@ async def restart_container(request: Request):
         return JSONResponse({'status': 'ok', 'message': msg})
     return JSONResponse({'status': 'error', 'message': 'No name'}, status_code=400)
 
+@app.post("/api/system/set-adtag")
+async def set_adtag(request: Request):
+    form = await request.form()
+    ad_tag = form.get('ad_tag', '')
+    settings = get_settings()
+    settings['ad_tag'] = ad_tag
+    save_json(SETTINGS_FILE, settings)
+    return JSONResponse({'status': 'ok', 'ad_tag': ad_tag})
+
+@app.post("/api/system/rotate-domain")
+async def rotate_domain(request: Request):
+    form = await request.form()
+    domain = form.get('domain', 'cloudflare.com')
+    settings = get_settings()
+    settings['fake_domain'] = domain
+    save_json(SETTINGS_FILE, settings)
+    return JSONResponse({'status': 'ok', 'domain': domain})
+
 @app.get("/api/system/logs")
-async def get_logs():
-    logs = run_docker_cmd(['logs', '--tail', '100'])
+async def get_logs(lines: int = 100):
+    logs = run_docker_cmd(['logs', '--tail', str(lines)])
     return JSONResponse({'status': 'ok', 'logs': logs})
 
 @app.get("/api/status")

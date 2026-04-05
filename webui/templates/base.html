@@ -34,6 +34,10 @@
                 <span class="nav-icon">📈</span>
                 <span>Статистика</span>
             </a>
+            <a href="/logs" class="nav-link {% if request.url.path == '/logs' %}active{% endif %}">
+                <span class="nav-icon">📋</span>
+                <span>Логи</span>
+            </a>
             <a href="/settings" class="nav-link {% if request.url.path == '/settings' %}active{% endif %}">
                 <span class="nav-icon">⚙️</span>
                 <span>Настройки</span>
