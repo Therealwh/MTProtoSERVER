@@ -36,7 +36,7 @@
     <p style="color:var(--text-secondary);margin-bottom:12px;">Таблица с подробной информацией: статус, объём трафика, количество уникальных IP и дата создания.</p>
     <div class="table-container">
         <table class="table">
-            <thead><tr><th>Тип</th><th>Имя</th><th>Порт</th><th>Домен</th><th>Статус</th><th>RX</th><th>TX</th><th>Всего</th><th>IP</th><th>Создан</th></tr></thead>
+            <thead><tr><th>Тип</th><th>Имя</th><th>Порт</th><th>Домен</th><th>Статус</th><th>RX</th><th>TX</th><th>Всего</th><th>Клиенты</th><th>IP клиентов</th></tr></thead>
             <tbody>
                 {% for c in clients %}
                 <tr>
@@ -49,7 +49,18 @@
                     <td>{{ c.tx_bytes | default(0) | filesizeformat }}</td>
                     <td><strong>{{ (c.rx_bytes | default(0) + c.tx_bytes | default(0)) | filesizeformat }}</strong></td>
                     <td>{{ c.unique_ips | default(0) }}</td>
-                    <td>{{ c.created_at }}</td>
+                    <td>
+                        {% if c.connected_ips %}
+                        <details>
+                            <summary style="cursor:pointer;color:var(--accent);font-size:12px;">{{ c.connected_ips | length }} IP</summary>
+                            {% for ip in c.connected_ips %}
+                            <small>{{ ip }}</small><br>
+                            {% endfor %}
+                        </details>
+                        {% else %}
+                        <span style="color:var(--text-secondary)">—</span>
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>

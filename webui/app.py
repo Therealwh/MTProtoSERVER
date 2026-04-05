@@ -773,7 +773,7 @@ async def update_mtproto(label: str, request: Request):
 # =================== PUBLIC API (no auth required) ===================
 
 def get_all_mtproto():
-    """Get MTProto proxies with live connection counts, traffic stats, and connected IPs"""
+    """Get MTProto proxies with live connection counts, traffic stats, and connected client IPs"""
     s = get_settings()
     ip = s.get('proxy_ip', '0.0.0.0')
     proxies = []
@@ -787,6 +787,7 @@ def get_all_mtproto():
             tx_bytes = 0
             connected_ips = []
             container_name = f'mtproto-proxy-{label}'
+            hex_port = format(port, 'X').upper().zfill(4)
             try:
                 r = subprocess.run(['docker', 'inspect', '-f', '{{.State.Pid}}', container_name],
                                   capture_output=True, text=True, timeout=5)
@@ -795,15 +796,20 @@ def get_all_mtproto():
                     tcp_file = f'/host_proc/{pid}/net/tcp'
                     if os.path.exists(tcp_file):
                         with open(tcp_file, 'r') as f:
+                            seen_ips = set()
                             for line in f:
                                 parts = line.strip().split()
-                                if len(parts) >= 4 and parts[3] == '01':
-                                    unique_ips += 1
-                                    rip_hex = parts[2].split(':')[0]
-                                    if len(rip_hex) == 8:
-                                        rip = '.'.join([str(int(rip_hex[i:i+2], 16)) for i in (6,4,2,0)])
-                                        if rip != '127.0.0.1' and rip != '0.0.0.0':
-                                            connected_ips.append(rip)
+                                if len(parts) >= 4 and parts[3] == '01':  # ESTABLISHED
+                                    local = parts[1].split(':')
+                                    if len(local) >= 2 and local[1].upper() == hex_port:
+                                        # This is a client connection (local port = proxy port)
+                                        rip_hex = parts[2].split(':')[0]
+                                        if len(rip_hex) == 8:
+                                            rip = '.'.join([str(int(rip_hex[i:i+2], 16)) for i in (6,4,2,0)])
+                                            if rip not in ('127.0.0.1', '0.0.0.0'):
+                                                seen_ips.add(rip)
+                            unique_ips = len(seen_ips)
+                            connected_ips = sorted(list(seen_ips))
                     dev_file = f'/host_proc/{pid}/net/dev'
                     if os.path.exists(dev_file):
                         with open(dev_file, 'r') as f:
