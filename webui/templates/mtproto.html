@@ -65,6 +65,14 @@
 </div>
 
 <div class="section">
+    <h3>📋 Мои MTProto прокси</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">Список всех ваших MTProto прокси. Вы можете редактировать каждый отдельно: менять порт, домен, секрет.</p>
+    <div id="proxy-list">
+        <p style="color:var(--text-secondary);">Загрузка...</p>
+    </div>
+</div>
+
+<div class="section">
     <h3>🔑 Генерация секрета</h3>
     <p style="color:var(--text-secondary);margin-bottom:12px;">Сгенерируйте новый секрет для MTProto прокси. Секрет привязан к текущему домену маскировки. После смены секрета старые ссылки перестанут работать — нужно будет выдать новые.</p>
     <div class="form-inline">
@@ -238,23 +246,80 @@ document.getElementById('domain-form').addEventListener('submit', async (e) => {
     }
 });
 
-// Set Ad-Tag
-document.getElementById('adtag-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const form = e.target;
-    const formData = new FormData(form);
-    const result = document.getElementById('adtag-result');
+// Load editable proxy list
+async function loadProxyList() {
+    const container = document.getElementById('proxy-list');
     try {
-        const res = await fetch('/api/system/set-adtag', { method: 'POST', body: formData });
+        const res = await fetch('/api/mtproto/list');
         const data = await res.json();
-        result.style.display = 'block';
-        result.className = 'result-box success';
-        result.textContent = '✅ Ad-Tag установлен';
-    } catch (err) {
-        result.style.display = 'block';
-        result.className = 'result-box error';
-        result.textContent = '❌ Ошибка: ' + err.message;
+        if (data.proxies && data.proxies.length > 0) {
+            let html = '';
+            data.proxies.forEach((p, i) => {
+                html += `<div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:12px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                        <strong style="font-size:16px;">${p.label}</strong>
+                        <span class="badge ${p.enabled ? 'badge-success' : 'badge-danger'}">${p.enabled ? 'Активен' : 'Отключён'}</span>
+                    </div>
+                    <div class="form-grid" style="gap:8px;margin-bottom:12px;">
+                        <div><label style="font-size:11px;color:var(--text-secondary);">Название</label>
+                        <input type="text" id="edit-label-${i}" value="${p.label}" class="input" style="padding:6px 10px;"></div>
+                        <div><label style="font-size:11px;color:var(--text-secondary);">Порт</label>
+                        <input type="number" id="edit-port-${i}" value="${p.port}" class="input" style="padding:6px 10px;"></div>
+                        <div><label style="font-size:11px;color:var(--text-secondary);">Домен</label>
+                        <select id="edit-domain-${i}" class="input" style="padding:6px 10px;">
+                            <option value="cloudflare.com" ${p.domain==='cloudflare.com'?'selected':''}>cloudflare.com</option>
+                            <option value="1c.ru" ${p.domain==='1c.ru'?'selected':''}>1c.ru</option>
+                            <option value="sberbank.ru" ${p.domain==='sberbank.ru'?'selected':''}>sberbank.ru</option>
+                            <option value="yandex.ru" ${p.domain==='yandex.ru'?'selected':''}>yandex.ru</option>
+                            <option value="mail.ru" ${p.domain==='mail.ru'?'selected':''}>mail.ru</option>
+                            <option value="vk.com" ${p.domain==='vk.com'?'selected':''}>vk.com</option>
+                            <option value="gosuslugi.ru" ${p.domain==='gosuslugi.ru'?'selected':''}>gosuslugi.ru</option>
+                        </select></div>
+                        <div><label style="font-size:11px;color:var(--text-secondary);">Секрет</label>
+                        <input type="text" id="edit-secret-${i}" value="${p.secret}" class="input" style="padding:6px 10px;"></div>
+                    </div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                        <button class="btn btn-sm btn-primary" onclick="updateProxy('${p.label}', ${i})">💾 Сохранить</button>
+                        <button class="btn btn-sm" onclick="copyText('${p.link}')">📋 Ссылка</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteProxy('${p.label}')">🗑️ Удалить</button>
+                    </div>
+                </div>`;
+            });
+            container.innerHTML = html;
+        } else {
+            container.innerHTML = '<p style="color:var(--text-secondary);">Нет MTProto прокси. Создайте первый выше.</p>';
+        }
+    } catch (e) {
+        container.innerHTML = '<p style="color:var(--danger);">Ошибка загрузки</p>';
     }
-});
+}
+
+async function updateProxy(label, idx) {
+    const fd = new FormData();
+    fd.append('new_label', document.getElementById(`edit-label-${idx}`).value);
+    fd.append('port', document.getElementById(`edit-port-${idx}`).value);
+    fd.append('domain', document.getElementById(`edit-domain-${idx}`).value);
+    fd.append('secret', document.getElementById(`edit-secret-${idx}`).value);
+    showToast('Сохранение...');
+    const res = await fetch(`/api/mtproto/${encodeURIComponent(label)}/update`, { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.status === 'ok') {
+        showToast('✅ Прокси обновлён!');
+        setTimeout(() => loadProxyList(), 2000);
+    } else {
+        showToast('❌ Ошибка: ' + (data.message || 'Неизвестная'));
+    }
+}
+
+async function deleteProxy(label) {
+    if (!confirm(`Удалить прокси "${label}"?`)) return;
+    const res = await fetch(`/api/mtproto/${encodeURIComponent(label)}/delete`, { method: 'POST' });
+    if ((await res.json()).status === 'ok') {
+        showToast('✅ Прокси удалён');
+        setTimeout(() => loadProxyList(), 1000);
+    }
+}
+
+loadProxyList();
 </script>
 {% endblock %}
