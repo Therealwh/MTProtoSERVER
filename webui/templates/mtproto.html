@@ -330,11 +330,6 @@ async function deleteProxy(label) {
         console.error('Delete error:', err);
     }
 }
-    } catch (err) {
-        showToast('❌ Ошибка сети: ' + err.message);
-        console.error('Delete error:', err);
-    }
-}
 
 loadProxyList();
 </script>
