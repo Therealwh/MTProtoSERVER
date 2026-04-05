@@ -738,35 +738,29 @@ def get_all_mtproto():
         if p.get('enabled', True):
             port = p.get('port', 0)
             label = p.get('label', '')
-            # Count active connections via docker exec on proxy container
             unique_ips = 0
+            # Try docker exec on proxy container
+            container = f'mtproto-proxy-{label}'
             try:
-                # Try docker exec on the proxy container
-                container = f'mtproto-proxy-{label}'
-                r = subprocess.run(['docker', 'exec', container, 'ss', '-tn', 'state', 'established',
-                                   f'sport', f':{port}'],
+                # Use cat /proc/net/tcp which always works
+                r = subprocess.run(['docker', 'exec', container, 'cat', '/proc/net/tcp'],
                                   capture_output=True, text=True, timeout=5)
                 if r.returncode == 0:
-                    lines = r.stdout.strip().split('\n')[1:]
+                    hex_port = format(port, 'X').upper().zfill(4)
                     ips = set()
-                    for line in lines:
-                        parts = line.split()
-                        if len(parts) >= 5:
-                            remote = parts[4].rsplit(':', 1)[0]
-                            if remote and remote != '127.0.0.1':
-                                ips.add(remote)
+                    for line in r.stdout.strip().split('\n')[1:]:
+                        parts = line.strip().split()
+                        if len(parts) >= 4 and parts[3] == '01':  # ESTABLISHED
+                            local = parts[1].split(':')
+                            if len(local) >= 2 and local[1].upper() == hex_port:
+                                remote_ip_hex = parts[2].split(':')[0]
+                                # Convert hex IP to dotted decimal
+                                if len(remote_ip_hex) == 8:
+                                    remote_ip = '.'.join([str(int(remote_ip_hex[i:i+2], 16)) for i in (6,4,2,0)])
+                                    if remote_ip != '127.0.0.1' and remote_ip != '0.0.0.0':
+                                        ips.add(remote_ip)
                     unique_ips = len(ips)
-            except:
-                # Fallback: try host ss via /proc/net
-                try:
-                    with open('/proc/net/tcp', 'r') as f:
-                        for line in f:
-                            parts = line.strip().split()
-                            if len(parts) >= 10 and parts[3] == '01':  # ESTABLISHED
-                                local_port = int(parts[1].split(':')[1], 16)
-                                if local_port == port:
-                                    unique_ips += 1
-                except: pass
+            except: pass
             proxies.append({
                 'label': label,
                 'port': port,
