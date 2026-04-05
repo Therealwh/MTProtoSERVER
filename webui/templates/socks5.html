@@ -6,10 +6,10 @@
     <p>SOCKS5 — универсальный прокси-протокол, который работает с любыми приложениями: браузерами, Telegram, curl и другими. Работает на базе Dante с аутентификацией по логину и паролю.</p>
 </div>
 
+{% if settings.socks5_enabled %}
 <div class="section">
     <h3>📊 Статус SOCKS5</h3>
     <p style="color:var(--text-secondary);margin-bottom:12px;">Информация о текущем состоянии SOCKS5 прокси. Если статус "Работает" — прокси доступен для подключений.</p>
-    {% if settings.socks5_enabled %}
     <div class="proxy-card proxy-active" style="max-width:600px;">
         <div class="proxy-header">
             <h4>SOCKS5 Dante</h4>
@@ -17,20 +17,19 @@
         </div>
         <div class="proxy-details">
             <div><span>Порт:</span> <strong>{{ settings.socks5_port }}</strong></div>
-            <div><span>IP:</span> <strong>{{ settings.proxy_ip }}</strong></div>
+            <div><span>IP:</span> <strong>{{ server_ip }}</strong></div>
             <div><span>Логин:</span> <strong>{{ settings.socks5_user }}</strong></div>
         </div>
         <div class="proxy-link-box">
-            <code>socks5://{{ settings.socks5_user }}:{{ settings.socks5_pass }}@{{ settings.proxy_ip }}:{{ settings.socks5_port }}</code>
-            <button class="btn btn-sm" onclick="navigator.clipboard.writeText('socks5://{{ settings.socks5_user }}:{{ settings.socks5_pass }}@{{ settings.proxy_ip }}:{{ settings.socks5_port }}'); showToast('Скопировано!')">📋</button>
+            <code>socks5://{{ settings.socks5_user }}:{{ settings.socks5_pass }}@{{ server_ip }}:{{ settings.socks5_port }}</code>
+            <button class="btn btn-sm" onclick="navigator.clipboard.writeText('socks5://{{ settings.socks5_user }}:{{ settings.socks5_pass }}@{{ server_ip }}:{{ settings.socks5_port }}'); showToast('Скопировано!')">📋</button>
         </div>
     </div>
-    {% else %}
-    <p style="color:var(--text-secondary);">SOCKS5 прокси не установлен. Запустите установщик заново и выберите установку SOCKS5.</p>
-    {% endif %}
+    <div style="margin-top:16px;">
+        <button class="btn btn-danger" onclick="deleteSocks5()">🗑️ Удалить SOCKS5</button>
+    </div>
 </div>
 
-{% if settings.socks5_enabled %}
 <div class="section">
     <h3>👥 Пользователи SOCKS5</h3>
     <p style="color:var(--text-secondary);margin-bottom:12px;">Список пользователей SOCKS5 прокси. Каждый пользователь имеет свой логин и пароль.</p>
@@ -41,11 +40,34 @@
                 <tr>
                     <td>{{ settings.socks5_user }}</td>
                     <td><code>{{ settings.socks5_pass }}</code></td>
-                    <td><code>socks5://{{ settings.socks5_user }}:{{ settings.socks5_pass }}@{{ settings.proxy_ip }}:{{ settings.socks5_port }}</code></td>
+                    <td><code>socks5://{{ settings.socks5_user }}:{{ settings.socks5_pass }}@{{ server_ip }}:{{ settings.socks5_port }}</code></td>
                 </tr>
             </tbody>
         </table>
     </div>
+</div>
+{% else %}
+<div class="section">
+    <h3>➕ Создать SOCKS5 прокси</h3>
+    <p style="color:var(--text-secondary);margin-bottom:12px;">SOCKS5 прокси не установлен. Заполните форму ниже для создания. Порт будет открыт в файрволе автоматически.</p>
+    <form id="create-socks5-form" class="form-grid">
+        <div class="form-group">
+            <label>Порт</label>
+            <input type="number" name="port" value="1080" class="input">
+        </div>
+        <div class="form-group">
+            <label>Логин</label>
+            <input type="text" name="user" value="proxyuser" class="input">
+        </div>
+        <div class="form-group">
+            <label>Пароль (оставьте пустым для автогенерации)</label>
+            <input type="text" name="password" placeholder="Авто" class="input">
+        </div>
+        <div class="form-group" style="display:flex;align-items:flex-end;">
+            <button type="submit" class="btn btn-primary">🧦 Создать SOCKS5</button>
+        </div>
+    </form>
+    <div id="socks5-result" class="result-box" style="display:none;"></div>
 </div>
 {% endif %}
 
@@ -55,7 +77,7 @@
     <div class="tips-list">
         <div class="tip-item">
             <span class="tip-icon">🌐</span>
-            <span><strong>Браузер:</strong> Настройки → Прокси → SOCKS5 → IP: {{ settings.proxy_ip }}, порт: {{ settings.socks5_port }}, логин: {{ settings.socks5_user }}</span>
+            <span><strong>Браузер:</strong> Настройки → Прокси → SOCKS5 → IP: {{ server_ip }}, порт: {{ settings.socks5_port | default(1080) }}, логин: {{ settings.socks5_user | default('proxyuser') }}</span>
         </div>
         <div class="tip-item">
             <span class="tip-icon">📱</span>
@@ -67,8 +89,49 @@
         </div>
         <div class="tip-item">
             <span class="tip-icon">🔧</span>
-            <span><strong>cURL:</strong> <code>curl -x socks5://USER:PASS@{{ settings.proxy_ip }}:{{ settings.socks5_port }} https://ifconfig.me</code></span>
+            <span><strong>cURL:</strong> <code>curl -x socks5://USER:PASS@{{ server_ip }}:{{ settings.socks5_port | default(1080) }} https://ifconfig.me</code></span>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+{% if not settings.socks5_enabled %}
+<script>
+document.getElementById('create-socks5-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    const result = document.getElementById('socks5-result');
+    result.style.display = 'block'; result.textContent = 'Создание...';
+    try {
+        const res = await fetch('/api/proxies/socks5/create', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            result.className = 'result-box success';
+            result.innerHTML = `<p>✅ SOCKS5 создан!</p>
+                <p>Порт: <strong>${data.port}</strong> | Логин: <strong>${data.user}</strong> | Пароль: <strong>${data.password}</strong></p>
+                <p>Строка: <code>socks5://${data.user}:${data.password}@{{ server_ip }}:${data.port}</code></p>
+                <button class="btn btn-sm" onclick="navigator.clipboard.writeText('socks5://${data.user}:${data.password}@{{ server_ip }}:${data.port}')">📋 Копировать</button>
+                <p style="margin-top:8px;color:var(--text-secondary);">Перезагрузите страницу через 5 секунд для обновления статуса.</p>`;
+            setTimeout(() => location.reload(), 5000);
+        } else {
+            result.className = 'result-box error';
+            result.textContent = '❌ Ошибка: ' + (data.message || 'Неизвестная');
+        }
+    } catch (err) {
+        result.className = 'result-box error';
+        result.textContent = '❌ Ошибка: ' + err.message;
+    }
+});
+</script>
+{% else %}
+<script>
+async function deleteSocks5() {
+    if (!confirm('Удалить SOCKS5 прокси?')) return;
+    const res = await fetch('/api/proxies/socks5/delete', { method: 'POST' });
+    if ((await res.json()).status === 'ok') { showToast('✅ SOCKS5 удалён'); setTimeout(() => location.reload(), 2000); }
+}
+</script>
+{% endif %}
 {% endblock %}
