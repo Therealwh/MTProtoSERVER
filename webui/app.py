@@ -44,7 +44,13 @@ init_files()
 
 def get_settings():
     s = load_json(SETTINGS_FILE)
-    for k, v in {'proxy_ip':'0.0.0.0','proxy_port':443,'fake_domain':'cloudflare.com','webui_port':8080,'proxy_count':1,'bot_enabled':False,'bot_token':'','admin_chat_id':'','socks5_enabled':False,'socks5_port':1080,'socks5_user':'','socks5_pass':'','http_proxy_enabled':False,'http_proxy_port':3128,'http_proxy_user':'','http_proxy_pass':'','ad_tag':'','geoblock_countries':'','webhook_url':'','auto_heal':True,'auto_update':True,'backup_enabled':True,'backup_interval':'daily','monitor_interval':300,'geoblock':[],'ip_whitelist':[],'ip_blacklist':[],'rate_limit':100}.items():
+    # Get external IP if not set
+    if not s.get('proxy_ip') or s.get('proxy_ip') == '0.0.0.0':
+        try:
+            r = subprocess.run(['curl', '-s', '--max-time', '5', 'ifconfig.me'], capture_output=True, text=True, timeout=10)
+            if r.stdout.strip(): s['proxy_ip'] = r.stdout.strip()
+        except: pass
+    for k, v in {'proxy_port':443,'fake_domain':'cloudflare.com','webui_port':8080,'proxy_count':1,'bot_enabled':False,'bot_token':'','admin_chat_id':'','socks5_enabled':False,'socks5_port':1080,'socks5_user':'','socks5_pass':'','http_proxy_enabled':False,'http_proxy_port':3128,'http_proxy_user':'','http_proxy_pass':'','ad_tag':'','geoblock_countries':'','webhook_url':'','auto_heal':True,'auto_update':True,'backup_enabled':True,'backup_interval':'daily','monitor_interval':300,'geoblock':[],'ip_whitelist':[],'ip_blacklist':[],'rate_limit':100}.items():
         if k not in s: s[k] = v
     return s
 
@@ -275,31 +281,37 @@ async def sync_node(nid:int):
 # PROXY MANAGEMENT
 @app.post("/api/proxies/socks5/create")
 async def create_socks5(request: Request):
-    form=await request.form(); port=int(form.get('port',1080) or 1080); user=form.get('user','proxyuser'); pw=form.get('password',sec.token_hex(8))
-    s=get_settings(); s['socks5_enabled']=True; s['socks5_port']=port; s['socks5_user']=user; s['socks5_pass']=pw; save_settings(s)
+    form=await request.form(); port=int(form.get('port',1080) or 1080); user=form.get('user',''); pw=form.get('password','')
+    s=get_settings(); s['socks5_enabled']=True; s['socks5_port']=port; s['socks5_user']=user or 'без логина'; s['socks5_pass']=pw or 'без пароля'; save_settings(s)
     os.makedirs(f"{HOST_DIR}/config", exist_ok=True)
-    with open(f"{HOST_DIR}/config/socks5.conf",'w') as f: f.write(f"logoutput: stderr\ninternal: 0.0.0.0 port = 1080\nexternal: eth0\nclientmethod: none\nsocksmethod: username\nuser.privileged: root\nuser.notprivileged: sockd\nuser.libwrap: nobody\nclient pass {{ from: 0.0.0.0/0 to: 0.0.0.0/0 }}\nsocks pass {{ from: 0.0.0.0/0 to: 0.0.0.0/0 user: {user} password: {pw} }}\n")
+    if user and pw:
+        with open(f"{HOST_DIR}/config/socks5.conf",'w') as f: f.write(f"logoutput: stderr\ninternal: 0.0.0.0 port = 1080\nexternal: eth0\nclientmethod: none\nsocksmethod: username\nuser.privileged: root\nuser.notprivileged: sockd\nuser.libwrap: nobody\nclient pass {{ from: 0.0.0.0/0 to: 0.0.0.0/0 }}\nsocks pass {{ from: 0.0.0.0/0 to: 0.0.0.0/0 user: {user} password: {pw} }}\n")
+    else:
+        with open(f"{HOST_DIR}/config/socks5.conf",'w') as f: f.write("logoutput: stderr\ninternal: 0.0.0.0 port = 1080\nexternal: eth0\nclientmethod: none\nsocksmethod: none\nuser.privileged: root\nuser.notprivileged: sockd\nuser.libwrap: nobody\nclient pass { from: 0.0.0.0/0 to: 0.0.0.0/0 }\nsocks pass { from: 0.0.0.0/0 to: 0.0.0.0/0 }\n")
     try: subprocess.run(['ufw','allow',str(port)+'/tcp'], capture_output=True, timeout=10)
     except: pass
     try:
         subprocess.run(['docker','rm','-f','mtproto-socks5'], capture_output=True, timeout=10)
         subprocess.run(['docker','run','-d','--name','mtproto-socks5','--restart','unless-stopped','-p',f'{port}:1080','-v',f'{HOST_DIR}/config/socks5.conf:/etc/sockd.conf:ro','--cap-add','NET_ADMIN','--network','mtprotoserver_mtproto-net','vimagick/dante'], capture_output=True, timeout=30)
     except: pass
-    return JSONResponse({'status':'ok','port':port,'user':user,'password':pw})
+    return JSONResponse({'status':'ok','port':port,'user':user or 'без логина','password':pw or 'без пароля'})
 
 @app.post("/api/proxies/http/create")
 async def create_http(request: Request):
-    form=await request.form(); port=int(form.get('port',3128) or 3128); user=form.get('user','proxyuser'); pw=form.get('password',sec.token_hex(8))
-    s=get_settings(); s['http_proxy_enabled']=True; s['http_proxy_port']=port; s['http_proxy_user']=user; s['http_proxy_pass']=pw; save_settings(s)
+    form=await request.form(); port=int(form.get('port',3128) or 3128); user=form.get('user',''); pw=form.get('password','')
+    s=get_settings(); s['http_proxy_enabled']=True; s['http_proxy_port']=port; s['http_proxy_user']=user or 'без логина'; s['http_proxy_pass']=pw or 'без пароля'; save_settings(s)
     os.makedirs(f"{HOST_DIR}/config", exist_ok=True)
-    with open(f"{HOST_DIR}/config/squid.conf",'w') as f: f.write("http_port 3128\ncache_dir ufs /var/spool/squid 100 16 256\ncoredump_dir /var/spool/squid\nhttp_access allow all\n")
+    if user and pw:
+        with open(f"{HOST_DIR}/config/squid.conf",'w') as f: f.write("http_port 3128\ncache_dir ufs /var/spool/squid 100 16 256\ncoredump_dir /var/spool/squid\nhttp_access allow all\n")
+    else:
+        with open(f"{HOST_DIR}/config/squid.conf",'w') as f: f.write("http_port 3128\ncache_dir ufs /var/spool/squid 100 16 256\ncoredump_dir /var/spool/squid\nhttp_access allow all\n")
     try: subprocess.run(['ufw','allow',str(port)+'/tcp'], capture_output=True, timeout=10)
     except: pass
     try:
         subprocess.run(['docker','rm','-f','mtproto-http-proxy'], capture_output=True, timeout=10)
         subprocess.run(['docker','run','-d','--name','mtproto-http-proxy','--restart','unless-stopped','-p',f'{port}:3128','-v',f'{HOST_DIR}/config/squid.conf:/etc/squid/squid.conf:ro','--network','mtprotoserver_mtproto-net','sameersbn/squid:latest'], capture_output=True, timeout=30)
     except: pass
-    return JSONResponse({'status':'ok','port':port,'user':user,'password':pw})
+    return JSONResponse({'status':'ok','port':port,'user':user or 'без логина','password':pw or 'без пароля'})
 
 @app.post("/api/proxies/socks5/delete")
 async def delete_socks5():
