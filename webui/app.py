@@ -1,12 +1,14 @@
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 import json
 import os
 import subprocess
 import secrets as sec
 import psutil
+import io
+import qrcode
 
 app = FastAPI(title="MTProtoSERVER Web UI")
 
@@ -418,3 +420,14 @@ async def api_metrics():
         metrics += f"# TYPE mtproto_user_traffic_in counter\n"
         metrics += f'mtproto_user_traffic_in{{user="{u["label"]}"}} {u.get("traffic_in", 0)}\n'
     return HTMLResponse(content=metrics)
+
+@app.get("/api/qr")
+async def generate_qr(text: str):
+    qr = qrcode.QRCode(version=1, box_size=10, border=5)
+    qr.add_data(text)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    buf = io.BytesIO()
+    img.save(buf, format='PNG')
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="image/png")
