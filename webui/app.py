@@ -34,7 +34,50 @@ CLIENTS_FILE = os.path.join(DATA_DIR, "clients.json")
 NODES_FILE = os.path.join(DATA_DIR, "nodes.json")
 LOGO_FILE = os.path.join(DATA_DIR, "logo.png")
 
-# =================== AUTH ===================
+def load_json(filepath):
+    try:
+        with open(filepath, 'r') as f:
+            return json.load(f)
+    except:
+        return {}
+
+def save_json(filepath, data):
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    with open(filepath, 'w') as f:
+        json.dump(data, f, indent=4)
+
+def get_settings():
+    s = load_json(SETTINGS_FILE)
+    defaults = {
+        'proxy_ip': '0.0.0.0', 'proxy_port': 443, 'fake_domain': 'cloudflare.com',
+        'webui_port': 8080, 'proxy_count': 1, 'bot_enabled': False, 'bot_token': '',
+        'admin_chat_id': '', 'socks5_enabled': False, 'socks5_port': 1080,
+        'socks5_user': '', 'socks5_pass': '', 'http_proxy_enabled': False,
+        'http_proxy_port': 3128, 'http_proxy_user': '', 'http_proxy_pass': '',
+        'ad_tag': '', 'geoblock_countries': '', 'webhook_url': '',
+        'auto_heal': True, 'auto_update': True, 'backup_enabled': True,
+        'backup_interval': 'daily', 'monitor_interval': 300, 'geoblock': [],
+        'ip_whitelist': [], 'ip_blacklist': [], 'rate_limit': 100,
+    }
+    for k, v in defaults.items():
+        if k not in s:
+            s[k] = v
+    return s
+
+def save_settings(data):
+    save_json(SETTINGS_FILE, data)
+
+def get_clients():
+    return load_json(CLIENTS_FILE)
+
+def save_clients(data):
+    save_json(CLIENTS_FILE, data)
+
+def get_nodes():
+    return load_json(NODES_FILE)
+
+def save_nodes(data):
+    save_json(NODES_FILE, data)
 
 def load_auth():
     try:
@@ -71,38 +114,6 @@ def verify_totp(secret, token, window=1):
 def get_totp_uri(secret, username="MTProtoSERVER"):
     return f"otpauth://totp/{username}?secret={secret}&issuer=MTProtoSERVER"
 
-# =================== DATA HELPERS ===================
-
-def load_json(filepath):
-    try:
-        with open(filepath, 'r') as f:
-            return json.load(f)
-    except:
-        return {}
-
-def save_json(filepath, data):
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    with open(filepath, 'w') as f:
-        json.dump(data, f, indent=4)
-
-def get_settings():
-    return load_json(SETTINGS_FILE)
-
-def save_settings(data):
-    save_json(SETTINGS_FILE, data)
-
-def get_clients():
-    return load_json(CLIENTS_FILE)
-
-def save_clients(data):
-    save_json(CLIENTS_FILE, data)
-
-def get_nodes():
-    return load_json(NODES_FILE)
-
-def save_nodes(data):
-    save_json(NODES_FILE, data)
-
 def get_proxy_link(ip, port, secret):
     return f"tg://proxy?server={ip}&port={port}&secret={secret}"
 
@@ -134,17 +145,20 @@ def get_docker_status():
     return containers
 
 def get_system_info():
-    mem = psutil.virtual_memory()
-    disk = psutil.disk_usage('/')
-    return {
-        'cpu_percent': psutil.cpu_percent(),
-        'memory_percent': mem.percent,
-        'memory_total_gb': round(mem.total / (1024**3), 1),
-        'memory_used_gb': round(mem.used / (1024**3), 1),
-        'disk_percent': disk.percent,
-        'disk_total_gb': round(disk.total / (1024**3), 1),
-        'disk_used_gb': round(disk.used / (1024**3), 1),
-    }
+    try:
+        mem = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
+        return {
+            'cpu_percent': psutil.cpu_percent(),
+            'memory_percent': mem.percent,
+            'memory_total_gb': round(mem.total / (1024**3), 1),
+            'memory_used_gb': round(mem.used / (1024**3), 1),
+            'disk_percent': disk.percent,
+            'disk_total_gb': round(disk.total / (1024**3), 1),
+            'disk_used_gb': round(disk.used / (1024**3), 1),
+        }
+    except:
+        return {'cpu_percent': 0, 'memory_percent': 0, 'memory_total_gb': 0, 'memory_used_gb': 0, 'disk_percent': 0, 'disk_total_gb': 0, 'disk_used_gb': 0}
 
 def format_bytes(b):
     if b == 0: return "0 B"
@@ -154,29 +168,30 @@ def format_bytes(b):
         b /= 1024
     return f"{b:.1f} PB"
 
-# =================== I18N ===================
-
 LANG = {
-    'ru': {
-        'dashboard': 'Дашборд', 'clients': 'Клиенты', 'nodes': 'Ноды',
-        'stats': 'Статистика', 'settings': 'Настройки', 'security': 'Безопасность',
-        'logs': 'Логи', 'backup': 'Бэкап', 'socks5': 'SOCKS5', 'http_proxy': 'HTTP/HTTPS',
-    },
-    'en': {
-        'dashboard': 'Dashboard', 'clients': 'Clients', 'nodes': 'Nodes',
-        'stats': 'Statistics', 'settings': 'Settings', 'security': 'Security',
-        'logs': 'Logs', 'backup': 'Backup', 'socks5': 'SOCKS5', 'http_proxy': 'HTTP/HTTPS',
-    }
+    'ru': {'dashboard': 'Дашборд', 'clients': 'Клиенты', 'nodes': 'Ноды', 'stats': 'Статистика', 'settings': 'Настройки', 'security': 'Безопасность', 'logs': 'Логи', 'backup': 'Бэкап'},
+    'en': {'dashboard': 'Dashboard', 'clients': 'Clients', 'nodes': 'Nodes', 'stats': 'Statistics', 'settings': 'Settings', 'security': 'Security', 'logs': 'Logs', 'backup': 'Backup'}
 }
 
 def get_lang(request: Request):
     return request.query_params.get('lang', 'ru')
 
+def common_context(request: Request):
+    settings = get_settings()
+    has_logo = os.path.exists(LOGO_FILE)
+    lang = get_lang(request)
+    return {
+        'settings': settings,
+        'has_logo': has_logo,
+        'lang': lang,
+        'now': datetime.now().strftime('%Y-%m-%d')
+    }
+
 # =================== PAGES ===================
 
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
-    settings = get_settings()
+    ctx = common_context(request)
     clients_data = get_clients()
     nodes_data = get_nodes()
     system = get_system_info()
@@ -187,115 +202,75 @@ async def dashboard(request: Request):
     total_rx = sum(c.get('rx_bytes', 0) for c in clients)
     total_tx = sum(c.get('tx_bytes', 0) for c in clients)
 
-    return templates.TemplateResponse("dashboard.html", {
-        "request": request,
-        "settings": settings,
-        "clients": clients,
-        "nodes": nodes,
-        "clients_count": len(clients),
-        "active_clients": active_clients,
-        "nodes_count": len(nodes),
-        "total_rx": format_bytes(total_rx),
-        "total_tx": format_bytes(total_tx),
-        "system": system,
-        "containers": containers,
-        "lang": get_lang(request),
-        "has_logo": os.path.exists(LOGO_FILE)
+    ctx.update({
+        'clients': clients, 'nodes': nodes,
+        'clients_count': len(clients), 'active_clients': active_clients,
+        'nodes_count': len(nodes),
+        'total_rx': format_bytes(total_rx), 'total_tx': format_bytes(total_tx),
+        'system': system, 'containers': containers
     })
+    return templates.TemplateResponse("dashboard.html", ctx)
 
 @app.get("/clients", response_class=HTMLResponse)
 async def clients_page(request: Request):
+    ctx = common_context(request)
     clients_data = get_clients()
     nodes_data = get_nodes()
-    settings = get_settings()
-    return templates.TemplateResponse("clients.html", {
-        "request": request,
-        "clients": clients_data.get('clients', []),
-        "nodes": nodes_data.get('nodes', []),
-        "settings": settings,
-        "lang": get_lang(request),
-        "has_logo": os.path.exists(LOGO_FILE)
+    ctx.update({
+        'clients': clients_data.get('clients', []),
+        'nodes': nodes_data.get('nodes', []),
     })
+    return templates.TemplateResponse("clients.html", ctx)
 
 @app.get("/nodes", response_class=HTMLResponse)
 async def nodes_page(request: Request):
+    ctx = common_context(request)
     nodes_data = get_nodes()
-    return templates.TemplateResponse("nodes.html", {
-        "request": request,
-        "nodes": nodes_data.get('nodes', []),
-        "lang": get_lang(request),
-        "has_logo": os.path.exists(LOGO_FILE)
-    })
+    ctx.update({'nodes': nodes_data.get('nodes', [])})
+    return templates.TemplateResponse("nodes.html", ctx)
 
 @app.get("/stats", response_class=HTMLResponse)
 async def stats_page(request: Request):
+    ctx = common_context(request)
     clients_data = get_clients()
     system = get_system_info()
-    return templates.TemplateResponse("stats.html", {
-        "request": request,
-        "clients": clients_data.get('clients', []),
-        "system": system,
-        "lang": get_lang(request),
-        "has_logo": os.path.exists(LOGO_FILE)
+    ctx.update({
+        'clients': clients_data.get('clients', []),
+        'system': system
     })
+    return templates.TemplateResponse("stats.html", ctx)
 
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
-    settings = get_settings()
+    ctx = common_context(request)
     auth = load_auth()
-    return templates.TemplateResponse("settings.html", {
-        "request": request,
-        "settings": settings,
-        "auth": auth,
-        "lang": get_lang(request),
-        "has_logo": os.path.exists(LOGO_FILE)
-    })
+    ctx.update({'auth': auth})
+    return templates.TemplateResponse("settings.html", ctx)
 
 @app.get("/security", response_class=HTMLResponse)
 async def security_page(request: Request):
-    settings = get_settings()
-    return templates.TemplateResponse("security.html", {
-        "request": request,
-        "settings": settings,
-        "lang": get_lang(request),
-        "has_logo": os.path.exists(LOGO_FILE)
-    })
+    ctx = common_context(request)
+    return templates.TemplateResponse("security.html", ctx)
 
 @app.get("/logs", response_class=HTMLResponse)
 async def logs_page(request: Request):
-    return templates.TemplateResponse("logs.html", {
-        "request": request,
-        "lang": get_lang(request),
-        "has_logo": os.path.exists(LOGO_FILE)
-    })
+    ctx = common_context(request)
+    return templates.TemplateResponse("logs.html", ctx)
 
 @app.get("/backup", response_class=HTMLResponse)
 async def backup_page(request: Request):
-    return templates.TemplateResponse("backup.html", {
-        "request": request,
-        "lang": get_lang(request),
-        "has_logo": os.path.exists(LOGO_FILE)
-    })
+    ctx = common_context(request)
+    return templates.TemplateResponse("backup.html", ctx)
 
 @app.get("/socks5", response_class=HTMLResponse)
 async def socks5_page(request: Request):
-    settings = get_settings()
-    return templates.TemplateResponse("socks5.html", {
-        "request": request,
-        "settings": settings,
-        "lang": get_lang(request),
-        "has_logo": os.path.exists(LOGO_FILE)
-    })
+    ctx = common_context(request)
+    return templates.TemplateResponse("socks5.html", ctx)
 
 @app.get("/http-proxy", response_class=HTMLResponse)
 async def http_proxy_page(request: Request):
-    settings = get_settings()
-    return templates.TemplateResponse("http_proxy.html", {
-        "request": request,
-        "settings": settings,
-        "lang": get_lang(request),
-        "has_logo": os.path.exists(LOGO_FILE)
-    })
+    ctx = common_context(request)
+    return templates.TemplateResponse("http_proxy.html", ctx)
 
 # =================== AUTH API ===================
 
@@ -305,22 +280,17 @@ async def login(request: Request):
     token = form.get('token', '')
     totp = form.get('totp', '')
     auth = load_auth()
-
     if not auth.get('token'):
-        # First login — set token
         if not token:
             return JSONResponse({'status': 'error', 'message': 'Token required'}, status_code=400)
         auth['token'] = token
         save_auth(auth)
         return JSONResponse({'status': 'ok', 'first_setup': True})
-
     if token != auth['token']:
         return JSONResponse({'status': 'error', 'message': 'Invalid token'}, status_code=401)
-
     if auth.get('totp_enabled') and auth.get('totp_secret'):
         if not verify_totp(auth['totp_secret'], totp):
             return JSONResponse({'status': 'error', 'message': 'Invalid TOTP', 'totp_required': True}, status_code=401)
-
     return JSONResponse({'status': 'ok'})
 
 @app.get("/api/auth/totp-setup")
@@ -329,10 +299,7 @@ async def totp_setup():
     if not auth.get('totp_secret'):
         auth['totp_secret'] = generate_totp_secret()
         save_auth(auth)
-    return JSONResponse({
-        'secret': auth['totp_secret'],
-        'uri': get_totp_uri(auth['totp_secret'])
-    })
+    return JSONResponse({'secret': auth['totp_secret'], 'uri': get_totp_uri(auth['totp_secret'])})
 
 @app.post("/api/auth/totp-enable")
 async def totp_enable(request: Request):
@@ -370,9 +337,9 @@ async def add_client(request: Request):
     form = await request.form()
     label = form.get('label', 'client')
     node_id = int(form.get('node_id', 0))
-    traffic_limit_gb = float(form.get('traffic_limit_gb', 0))
-    device_limit = int(form.get('device_limit', 0))
-    expiry_days = int(form.get('expiry_days', 0))
+    traffic_limit_gb = float(form.get('traffic_limit_gb', 0) or 0)
+    device_limit = int(form.get('device_limit', 0) or 0)
+    expiry_days = int(form.get('expiry_days', 0) or 0)
 
     settings = get_settings()
     clients_data = get_clients()
@@ -382,8 +349,6 @@ async def add_client(request: Request):
     domain = form.get('domain', settings.get('fake_domain', 'cloudflare.com'))
     domain_hex = domain.encode().hex()
     secret = f"ee{sec.token_hex(14)}{domain_hex}"
-
-    # Auto port
     port = 443 + next_id
 
     expiry_date = ''
@@ -391,29 +356,24 @@ async def add_client(request: Request):
         expiry_date = (datetime.now() + timedelta(days=expiry_days)).strftime('%Y-%m-%d')
 
     new_client = {
-        'id': next_id,
-        'label': label,
-        'node_id': node_id,
-        'port': port,
-        'domain': domain,
-        'secret': secret,
-        'enabled': True,
+        'id': next_id, 'label': label, 'node_id': node_id, 'port': port,
+        'domain': domain, 'secret': secret, 'enabled': True,
         'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        'traffic_limit_gb': traffic_limit_gb,
-        'device_limit': device_limit,
-        'expiry_date': expiry_date,
-        'auto_reset': form.get('auto_reset', 'never'),
-        'rx_bytes': 0,
-        'tx_bytes': 0,
-        'unique_ips': 0,
-        'connections': 0,
-        'history': []
+        'traffic_limit_gb': traffic_limit_gb, 'device_limit': device_limit,
+        'expiry_date': expiry_date, 'auto_reset': form.get('auto_reset', 'never'),
+        'rx_bytes': 0, 'tx_bytes': 0, 'unique_ips': 0, 'connections': 0, 'history': []
     }
 
     clients.append(new_client)
     clients_data['clients'] = clients
     clients_data['next_id'] = next_id + 1
     save_clients(clients_data)
+
+    # Auto-open firewall port
+    try:
+        subprocess.run(['ufw', 'allow', str(port) + '/tcp'], capture_output=True, timeout=10)
+    except:
+        pass
 
     link = get_proxy_link(settings.get('proxy_ip', '0.0.0.0'), port, secret)
     return JSONResponse({'status': 'ok', 'secret': secret, 'link': link, 'port': port})
@@ -426,7 +386,7 @@ async def toggle_client(client_id: int):
             c['enabled'] = not c.get('enabled', True)
             break
     save_clients(clients_data)
-    return JSONResponse({'status': 'ok', 'enabled': c['enabled']})
+    return JSONResponse({'status': 'ok', 'enabled': c.get('enabled', True)})
 
 @app.post("/api/clients/{client_id}/delete")
 async def delete_client(client_id: int):
@@ -477,20 +437,13 @@ async def add_node(request: Request):
     next_id = nodes_data.get('next_id', 1)
 
     new_node = {
-        'id': next_id,
-        'name': form.get('name', 'node'),
-        'ip': form.get('ip', ''),
-        'port': int(form.get('port', 9876)),
-        'country': form.get('country', '🌍'),
-        'token': form.get('token', ''),
-        'auth_type': form.get('auth_type', 'token'),
-        'ssh_user': form.get('ssh_user', ''),
-        'ssh_pass': form.get('ssh_pass', ''),
-        'ssh_key': form.get('ssh_key', ''),
-        'enabled': True,
+        'id': next_id, 'name': form.get('name', 'node'), 'ip': form.get('ip', ''),
+        'port': int(form.get('port', 9876) or 9876), 'country': form.get('country', '🌍'),
+        'token': form.get('token', ''), 'auth_type': form.get('auth_type', 'token'),
+        'ssh_user': form.get('ssh_user', ''), 'ssh_pass': form.get('ssh_pass', ''),
+        'ssh_key': form.get('ssh_key', ''), 'enabled': True,
         'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        'last_ping': '',
-        'status': 'unknown'
+        'last_ping': '', 'status': 'unknown'
     }
 
     nodes.append(new_node)
@@ -548,12 +501,11 @@ async def sync_node(node_id: int):
                 headers = {'x-token': n['token']}
                 r = req.get(url, headers=headers, timeout=10)
                 remote_clients = r.json().get('clients', [])
-                # Merge with local
                 local_clients = clients_data.get('clients', [])
                 for rc in remote_clients:
                     found = False
                     for lc in local_clients:
-                        if lc['label'] == rc['label']:
+                        if lc['label'] == rc.get('label', ''):
                             lc['rx_bytes'] = rc.get('rx_bytes', 0)
                             lc['tx_bytes'] = rc.get('tx_bytes', 0)
                             lc['unique_ips'] = rc.get('unique_ips', 0)
