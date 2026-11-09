@@ -1,6 +1,18 @@
 # MTProtoSERVER — Полный комбайн MTProto прокси
 
+> [!IMPORTANT]
+> ## 🚚 Проект переехал!
+>
+> Этот репозиторий **больше не развивается**. Актуальная версия проекта теперь живёт здесь:
+>
+> ### 👉 [Therealwh/Web-Proxy-Telegram-Panel-TG-BOT](https://github.com/Therealwh/Web-Proxy-Telegram-Panel-TG-BOT)
+>
+> Все обновления, новые функции, исправления и поддержка — только в новом репозитории.
+> **Пожалуйста, перейдите по ссылке и используйте новую версию.**
+
 <div align="center">
+
+![Archived](https://img.shields.io/badge/status-archived%20%2F%20moved-red)
 
 ![Version](https://img.shields.io/badge/version-1.0.0-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-blue)
@@ -9,6 +21,8 @@
 ![Platform](https://img.shields.io/badge/platform-Linux-lightgrey)
 
 **Полноценный MTProto прокси сервер с обходом блокировок РФ**
+
+> ⚠️ **Внимание:** проект переехал в [Web-Proxy-Telegram-Panel-TG-BOT](https://github.com/Therealwh/Web-Proxy-Telegram-Panel-TG-BOT). Эта версия устарела и не поддерживается.
 
 [Установка](#-быстрая-установка) • [Возможности](#-возможности) • [Документация](#-документация) • [FAQ](#-faq)
 
@@ -35,6 +49,8 @@
 ---
 
 ## 📖 Описание
+
+> 🚚 **Этот проект переехал:** актуальная версия — [Web-Proxy-Telegram-Panel-TG-BOT](https://github.com/Therealwh/Web-Proxy-Telegram-Panel-TG-BOT). Инструкция ниже оставлена для старой версии и может быть неактуальной.
 
 **MTProtoSERVER** — это полноценный комбайн для развёртывания MTProto прокси с обходом блокировок. Работает на базе **telemt** (Rust/Tokio) — самого современного и быстрого движка MTProto на 2026 год.
 
@@ -511,6 +527,8 @@ MIT License — свободное использование с указани�
 <div align="center">
 
 **MTProtoSERVER v1.0.0** | 2026
+
+> 🚚 Проект переехал: [Therealwh/Web-Proxy-Telegram-Panel-TG-BOT](https://github.com/Therealwh/Web-Proxy-Telegram-Panel-TG-BOT)
 
 Сделано с ❤️ для свободного доступа к Telegram
 
